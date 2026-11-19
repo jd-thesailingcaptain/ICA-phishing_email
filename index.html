@@ -26,7 +26,10 @@ button:active:not(:disabled){transform:scale(.97)}
 button:focus-visible,.row:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
 button.primary{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
 button.primary:hover:not(:disabled){background:var(--blued)}
-.fold{margin-top:10px;padding:6px 8px;border-left:3px solid var(--blue);background:var(--sel);font-weight:600;display:flex;justify-content:space-between}
+.fold{margin-top:2px;padding:6px 8px;border-left:3px solid transparent;border-radius:2px;font-weight:600;display:flex;justify-content:space-between;gap:10px;cursor:pointer;transition:background .15s}
+#f-in{margin-top:10px}
+.fold:hover{background:#f0efee}
+.fold.on{border-left-color:var(--blue);background:var(--sel)}
 .prog{font-size:12px;color:var(--mute);padding:0 8px}
 #lw{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 #list{overflow:auto;flex:1}
@@ -123,7 +126,11 @@ tr.bad td{background:var(--badbg)}
 .st b{display:block;font-size:26px}.st small{color:var(--mute);font-size:11.5px}
 .st.ok b{color:var(--ok)}.st.bad b{color:var(--bad)}
 .btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-@media(max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:auto 38% 1fr}.nav{flex-direction:row;flex-wrap:wrap}.fold,.prog{display:none}#lw{border-right:0;border-bottom:1px solid var(--line)}}
+.row.leave{animation:rout .45s ease forwards;overflow:hidden}
+@keyframes rout{from{max-height:120px}to{opacity:0;transform:translateX(-60px);max-height:0;padding:0 12px;border-bottom-width:0}}
+.fw.out{animation:fout .4s ease forwards}
+@keyframes fout{to{opacity:0;transform:translateX(50px)}}
+@media(max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:auto 38% 1fr}.nav{flex-direction:row;flex-wrap:wrap}.prog{display:none}#lw{border-right:0;border-bottom:1px solid var(--line)}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -134,7 +141,8 @@ tr.bad td{background:var(--badbg)}
     <button id="add" class="primary">Add .eml files</button>
     <button id="restore">Restore samples</button>
     <button id="reset" class="rst">Reset</button>
-    <div class="fold"><span>Inbox</span><span id="cnt"></span></div>
+    <div class="fold on" id="f-in"><span>Inbox</span><span id="cnt"></span></div>
+    <div class="fold" id="f-done"><span>Reviewed</span><span id="cnt2"></span></div>
     <div class="prog" id="prog"></div>
     <input id="file" type="file" accept=".eml,message/rfc822" multiple hidden>
   </aside>
@@ -148,7 +156,7 @@ tr.bad td{background:var(--badbg)}
   <ol>
     <li><b>Open an email</b> from the inbox on the left.</li>
     <li><b>Investigate it.</b> Read the Message, check the Headers (From, Reply-To, Return-Path and the SPF/DKIM/DMARC results), compare each link's text with its real destination in Links, and look at Attachments.</li>
-    <li><b>Decide.</b> Click PHISHING or LEGITIMATE. You get one answer per email, and the result is named True Positive, True Negative, False Positive or False Negative.</li>
+    <li><b>Decide.</b> Click PHISHING or LEGITIMATE. You get one answer per email, and the result is named True Positive, True Negative, False Positive or False Negative. The email then slides out of your inbox into Reviewed, where you can look back at it.</li>
     <li><b>Watch your score</b> in the top right. Answer all 10 emails to see your final results. Reset (left side) starts over.</li>
     <li><b>Use your own emails.</b> Add .eml files with the button or by dragging them onto the page, and remove any email with Remove.</li>
   </ol>
@@ -240,7 +248,9 @@ const slim=r=>{const o={name:r.name,buf:r.buf,read:r.read,added:r.added,truth:r.
 const persist=r=>{if(db&&r.id>0)tx('readwrite',s=>s.put(slim(r))).catch(()=>{})};
 let ans={};try{ans=JSON.parse(localStorage.getItem('eml-answers')||'{}')}catch{}
 const saveAns=()=>{try{localStorage.setItem('eml-answers',JSON.stringify(ans))}catch{}};
-const fresh=new Set();
+const fresh=new Set();let folder='in';const leave=new Set();
+const answered=i=>!!(i.truth&&ans[keyOf(i)]);
+const view=()=>items.filter(i=>folder=='in'?(!answered(i)||leave.has(i.id)):(answered(i)&&!leave.has(i.id)));
 function outcome(t,a){
   if(t=='phish'&&a=='phish')return['ok','True Positive','You flagged a phishing email as phishing.'];
   if(t=='legit'&&a=='legit')return['ok','True Negative','You correctly trusted a legitimate email.'];
@@ -252,12 +262,12 @@ function renderList(){
   $('#score').innerHTML=`Score <b>${c}</b><span class="of">/ ${TOTAL}</span>`;
   $('#score').classList.toggle('perfect',c==TOTAL);$('#score').classList.toggle('done',d==TOTAL);$('#score').title=d==TOTAL?'Click to see your results':'';
   $('#prog').textContent=`${d} of ${TOTAL} reviewed`;
-  $('#cnt').textContent=items.length||'';let stag=0;
-  $('#list').innerHTML=items.length?items.map(i=>{const a=ans[keyOf(i)];return `<div class="row${i.id===sel?' sel':''}${i.read?'':' unread'}${fresh.has(i.id)?' enter':''}" role="listitem" tabindex="0" data-id="${i.id}"${fresh.has(i.id)?` style="animation-delay:${stag++*70}ms"`:''}><div class="av" style="background:${hue(i.msg.from.name)}">${esc((i.msg.from.name[0]||'?').toUpperCase())}</div><div class="rc"><div class="r1"><span class="fr">${esc(i.msg.from.name)}</span><span class="dt">${esc(fmtDate(i.msg))}${a?`<span class="mk ${a==i.truth?'ok':'bad'}">${a==i.truth?'\u2713':'\u2717'}</span>`:''}</span></div><div class="sj">${esc(i.msg.subject||'(no subject)')}</div><div class="pv">${esc(i.msg.snip)}</div></div></div>`}).join(''):'<div class="empty">Inbox is empty.<br>Drag .eml files anywhere on this page, or use Add .eml files.</div>';
+  $('#cnt').textContent=items.filter(i=>!answered(i)).length||'';$('#cnt2').textContent=items.filter(answered).length||'';$('#f-in').classList.toggle('on',folder=='in');$('#f-done').classList.toggle('on',folder=='done');let stag=0;const V=view();
+  $('#list').innerHTML=V.length?V.map(i=>{const a=ans[keyOf(i)];return `<div class="row${i.id===sel?' sel':''}${i.read?'':' unread'}${fresh.has(i.id)?' enter':''}" role="listitem" tabindex="0" data-id="${i.id}"${fresh.has(i.id)?` style="animation-delay:${stag++*70}ms"`:''}><div class="av" style="background:${hue(i.msg.from.name)}">${esc((i.msg.from.name[0]||'?').toUpperCase())}</div><div class="rc"><div class="r1"><span class="fr">${esc(i.msg.from.name)}</span><span class="dt">${esc(fmtDate(i.msg))}${a?`<span class="mk ${a==i.truth?'ok':'bad'}">${a==i.truth?'\u2713':'\u2717'}</span>`:''}</span></div><div class="sj">${esc(i.msg.subject||'(no subject)')}</div><div class="pv">${esc(i.msg.snip)}</div></div></div>`}).join(''):'<div class="empty">'+(items.length?(folder=='in'?'All caught up.<br>Open Reviewed to look back at your answers.':'Nothing reviewed yet.<br>Answered emails move here.'):'Inbox is empty.<br>Drag .eml files anywhere on this page, or use Add .eml files.')+'</div>';
   fresh.clear()}
 function renderReader(anim){
   const i=items.find(x=>x.id==sel),r=$('#reader');
-  if(!i){r.innerHTML='<div class="empty">Select an email to read it.</div>';return}
+  if(!i){r.innerHTML='<div class="empty">'+(allDone()?'All emails reviewed.<br>Open the Reviewed folder to look back at your answers.':'Select an email to read it.')+'</div>';return}
   const m=i.msg,L=getLinks(m),a=ans[keyOf(i)],T=[['message','Message'],['headers','Headers'],['links','Links ('+L.length+')'],['att','Attachments ('+m.att.length+')']];
   let v;
   if(!i.truth)v='<div class="vbar"><span>Added manually, so it is not scored.</span><span class="sp2"></span><button id="del">Remove</button></div>';
@@ -301,14 +311,27 @@ $('#list').onkeydown=e=>{if(e.key=='Enter'){const r=e.target.closest('.row');if(
 $('#reader').onclick=async e=>{
   const t=e.target.closest('[data-tab]');if(t){tab=t.dataset.tab;renderReader();return}
   const v=e.target.closest('[data-v]');
-  if(v&&!v.disabled){const i=items.find(x=>x.id==sel);ans[keyOf(i)]=v.dataset.v;saveAns();renderList();renderReader();const s=$('#score');s.classList.remove('bump');void s.offsetWidth;s.classList.add('bump');if(allDone())setTimeout(showResults,1500);return}
+  if(v&&!v.disabled){const i=items.find(x=>x.id==sel);ans[keyOf(i)]=v.dataset.v;saveAns();afterVerdict(i.id);return}
   const d=e.target.closest('[data-dl]');
   if(d){const a=items.find(x=>x.id==sel).msg.att[+d.dataset.dl],u=URL.createObjectURL(new Blob([a.bytes],{type:a.type})),l=document.createElement('a');l.href=u;l.download=a.name;l.click();setTimeout(()=>URL.revokeObjectURL(u),2000);return}
-  if(e.target.id=='del'){await drop(items.find(x=>x.id==sel));sel=items[0]?items[0].id:null;render()}};
+  if(e.target.id=='del'){await drop(items.find(x=>x.id==sel));sel=view()[0]?view()[0].id:null;render()}};
 $('#reader').onchange=e=>{if(e.target.id=='rem'){remote=e.target.checked;renderReader()}};
 $('#add').onclick=()=>$('#file').click();
 $('#file').onchange=e=>{addFiles(e.target.files);e.target.value=''};
 const allDone=()=>BK.length>0&&BK.every(b=>ans[b.k]);
+let vtok=0;
+async function afterVerdict(id){
+  const tok=vtok;leave.add(id);renderList();renderReader();
+  const sc=$('#score');sc.classList.remove('bump');void sc.offsetWidth;sc.classList.add('bump');
+  await sleep(1500);if(tok!=vtok)return;
+  const row=$('#list .row[data-id="'+id+'"]'),fw=sel==id?$('#reader .fw'):null;
+  if(row)row.classList.add('leave');if(fw)fw.classList.add('out');
+  await sleep(450);if(tok!=vtok)return;
+  const pos=view().findIndex(x=>x.id==id),adv=sel==id&&folder=='in';
+  leave.delete(id);
+  if(adv){const rest=view(),nx=rest[Math.min(pos,rest.length-1)];if(nx)open(nx.id);else{sel=null;renderList();renderReader()}}else renderList();
+  if(allDone())showResults()}
+function switchFolder(f){folder=f;const v=view();if(v[0])open(v[0].id);else{sel=null;renderList();renderReader(true)}}
 function showResults(){
   const c=BK.filter(b=>ans[b.k]==b.t).length,T=BK.length,n=(t,a)=>BK.filter(b=>b.t==t&&ans[b.k]==a).length;
   const tiers=[[10,'t-g','Perfect score!','Flawless. Phishing does not stand a chance against you.'],[9,'t-g','Awesome job!','You spotted nearly everything. Sharp eyes.'],[7,'t-y','Nice work, analyst','Solid instincts. Review the ones you missed and you will be unstoppable.'],[5,'t-o','Not bad, keep going','You caught about half. Look harder at headers and link destinations next time.'],[3,'t-o','Next time, champ','The phishers got you a few times this round. Study the red flags and take another swing.'],[0,'t-r','Rough round','Every analyst starts somewhere. Hit reset and dig into the headers and links.']];
@@ -322,8 +345,10 @@ async function doReset(){
   ans={};saveAns();gone.clear();saveGone();
   if(db)await tx('readwrite',s=>s.clear()).catch(()=>{});
   items=[];SREC.forEach(r=>{r.read=false;items.push(r)});
-  sel=null;tab='message';fresh.clear();items.forEach(i=>fresh.add(i.id));
+  sel=null;tab='message';vtok++;leave.clear();folder='in';fresh.clear();items.forEach(i=>fresh.add(i.id));
   renderList();if(items[0])open(items[0].id);else render()}
+$('#f-in').onclick=()=>switchFolder('in');
+$('#f-done').onclick=()=>switchFolder('done');
 $('#reset').onclick=()=>$('#cf').classList.remove('off');
 $('#cfn').onclick=()=>$('#cf').classList.add('off');
 $('#cfy').onclick=async()=>{$('#cf').classList.add('off');await doReset()};
@@ -345,10 +370,10 @@ const sampleQueue=()=>SREC.filter(r=>!items.some(x=>x.name==r.name)).map(r=>({na
 (async()=>{
   const sp=$('#splash');let intro=true;try{intro=!sessionStorage.getItem('eml-splash')}catch{}
   if(!intro)sp.classList.add('off');
-  $('#go').onclick=()=>{sp.classList.add('off');try{sessionStorage.setItem('eml-splash','1')}catch{}if(intro){intro=false;items.forEach(i=>fresh.add(i.id));if(items[0])open(items[0].id);else render()}};
+  $('#go').onclick=()=>{sp.classList.add('off');try{sessionStorage.setItem('eml-splash','1')}catch{}if(intro){intro=false;items.forEach(i=>fresh.add(i.id));const v=view();if(v[0])open(v[0].id);else render()}};
   try{db=await openDB();for(const r of await tx('readonly',s=>s.getAll())){if(r.bundled){await tx('readwrite',s=>s.delete(r.id)).catch(()=>{});continue}r.msg=parseEml(r.buf,r.added);items.push(r)}}catch{db=null}
   SREC.forEach(r=>{if(!gone.has(r.name))items.push(r)});
-  renderList();if(items[0])sel=items[0].id;
+  renderList();{const v=view();if(v[0])sel=v[0].id}
   if(!intro&&sel!=null)open(sel);else render();
 })();
 </script>
