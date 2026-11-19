@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EML Analyser</title>
+<style>
+:root{--blue:#0f6cbd;--blued:#115ea3;--line:#e1dfdd;--text:#242424;--mute:#605e5c;--sel:#e6f0fa;--ok:#107c10;--okbg:#e7f4e4;--bad:#c50f1f;--badbg:#fdeceb;--hl:#fff4ce;--code:#f5f5f5}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif;background:#fff;color:var(--text);display:flex;flex-direction:column}
+.tb{display:flex;align-items:center;gap:12px;height:68px;padding:0 20px;background:var(--blue);color:#fff}
+.tb h1{font-size:20px;font-weight:600;margin:0;flex:1}
+.score{background:rgba(255,255,255,.2);border-radius:14px;padding:2px 24px;font-size:17px;font-weight:600;display:flex;align-items:baseline;gap:8px}
+.score b{font-size:40px;line-height:1.15}.of{font-size:22px;opacity:.85}
+.hb{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.45);color:#fff}
+.hb:hover:not(:disabled){background:rgba(255,255,255,.28)}
+.score.perfect{background:#ffd23f;color:#3b2f00}
+.bump{animation:bump .5s}
+@keyframes bump{40%{transform:scale(1.18)}}
+.app{flex:1;min-height:0;display:grid;grid-template-columns:200px 340px 1fr}
+.nav{background:#faf9f8;border-right:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:8px}
+button{font:inherit;color:inherit;background:#fff;border:1px solid #c8c6c4;border-radius:4px;padding:6px 12px;cursor:pointer;transition:background .15s,transform .1s}
+button:hover:not(:disabled){background:#f3f2f1}
+button:active:not(:disabled){transform:scale(.97)}
+button:focus-visible,.row:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+button.primary{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+button.primary:hover:not(:disabled){background:var(--blued)}
+.fold{margin-top:10px;padding:6px 8px;border-left:3px solid var(--blue);background:var(--sel);font-weight:600;display:flex;justify-content:space-between}
+.prog{font-size:12px;color:var(--mute);padding:0 8px}
+#lw{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+#list{overflow:auto;flex:1}
+#imp{display:none;position:relative;padding:8px 14px;font-size:13px;background:var(--sel);color:var(--blued);align-items:center;gap:8px;overflow:hidden}
+#imp.on{display:flex}
+#imp i{position:absolute;left:0;bottom:0;height:3px;background:var(--blue);transition:width .45s linear}
+.sp{width:14px;height:14px;border:2px solid #b4d6fa;border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.row{display:flex;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);border-left:3px solid transparent;cursor:pointer;transition:background .15s}
+.row:hover{background:#f5f5f5}
+.row.sel{background:var(--sel);border-left-color:var(--blue)}
+.row.enter{animation:rin .45s ease both}
+@keyframes rin{from{opacity:0;transform:translateX(-14px)}}
+.av{width:34px;height:34px;border-radius:50%;color:#fff;display:grid;place-items:center;font-weight:600;flex:none}
+.rc{min-width:0;flex:1}
+.r1{display:flex;justify-content:space-between;gap:8px}
+.fr,.sj,.pv{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dt{color:var(--mute);font-size:12px;white-space:nowrap}
+.pv{color:var(--mute);font-size:12.5px}
+.row.unread .fr,.row.unread .sj{font-weight:700}
+.row.unread .sj{color:var(--blue)}
+.mk{font-weight:700;margin-left:6px}
+.mk.ok{color:var(--ok)}.mk.bad{color:var(--bad)}
+#reader{display:flex;flex-direction:column;min-width:0;min-height:0}
+.fw{display:flex;flex-direction:column;flex:1;min-height:0}
+.fw.anim{animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}}
+.vbar{display:flex;align-items:center;gap:10px;padding:8px 20px;border-bottom:1px solid var(--line);background:#faf9f8}
+.vbar>span{color:var(--mute)}
+.sp2{flex:1}
+.v{font-weight:700;letter-spacing:.4px;color:#fff;padding:6px 16px}
+.v.bad{background:var(--bad);border-color:var(--bad)}
+.v.ok{background:var(--ok);border-color:var(--ok)}
+.v.bad:hover:not(:disabled){background:#a80d1a}
+.v.ok:hover:not(:disabled){background:#0b6a0b}
+.v:disabled{opacity:.4;cursor:default}
+.v.picked:disabled{opacity:1;box-shadow:0 0 0 3px rgba(0,0,0,.2)}
+.res{margin:12px 20px 0;padding:10px 14px;border-radius:4px;border-left:4px solid;animation:slide .4s ease}
+@keyframes slide{from{opacity:0;transform:translateY(-8px)}}
+.res.ok{background:var(--okbg);border-color:var(--ok)}
+.res.bad{background:var(--badbg);border-color:var(--bad)}
+.res b{font-size:15px}.res.ok b{color:var(--ok)}.res.bad b{color:var(--bad)}
+.res small{display:block;color:var(--mute);font-size:13px}
+.rh{padding:14px 20px 8px}
+.rh h2{margin:0 0 10px;font-size:19px;font-weight:600;overflow-wrap:anywhere}
+.sender{display:flex;gap:12px}
+.meta{font-size:13px;color:var(--mute);overflow-wrap:anywhere;min-width:0}
+.meta b{color:var(--text)}.adr{color:var(--blued)}
+.tabs{display:flex;gap:2px;padding:0 20px;border-bottom:1px solid var(--line)}
+.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;color:var(--mute);padding:8px 12px}
+.tabs button.on{color:var(--text);font-weight:600;border-bottom-color:var(--blue)}
+.body{flex:1;min-height:0;overflow:auto;padding:14px 20px;display:flex;flex-direction:column}
+.bar{display:flex;gap:14px;align-items:center;font-size:12.5px;color:var(--mute);margin-bottom:10px}
+iframe{flex:1;min-height:300px;width:100%;border:1px solid var(--line);border-radius:4px;background:#fff}
+.paper{border:1px solid var(--line);border-radius:4px;padding:16px}
+pre.txt{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;font:inherit}
+.url{color:var(--blue);text-decoration:underline}
+.hf{font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace;padding:6px 10px;border-radius:3px;overflow-wrap:anywhere;white-space:pre-wrap}
+.hf:nth-child(odd){background:var(--code)}
+.hf.key{background:var(--hl)}
+.g{color:var(--ok);font-weight:700}.r{color:var(--bad);font-weight:700}.o{color:#b95000;font-weight:700}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
+td.u{font:12.5px ui-monospace,Menlo,Consolas,monospace}
+tr.bad td{background:var(--badbg)}
+.tag{color:var(--bad);font-weight:600;font-size:12px}
+.empty{color:var(--mute);padding:40px 24px;text-align:center}
+#drop{position:fixed;inset:0;background:rgba(15,108,189,.9);color:#fff;display:none;place-items:center;font-size:22px;z-index:9}
+#drop.on{display:grid}
+
+#splash{position:fixed;inset:0;z-index:20;background:linear-gradient(135deg,#0f6cbd,#0a3f78);display:grid;place-items:center;padding:20px;overflow:auto;transition:opacity .35s,visibility .35s}
+#splash.off{opacity:0;visibility:hidden;pointer-events:none}
+.card{background:#fff;border-radius:10px;max-width:640px;width:100%;padding:32px 36px;box-shadow:0 20px 60px rgba(0,0,0,.35);animation:pop .5s ease}
+@keyframes pop{from{opacity:0;transform:translateY(16px) scale(.97)}}
+.card h2{margin:0 0 6px;font-size:30px;color:var(--blue)}
+.card p{margin:0 0 14px;color:var(--mute)}
+.card ol{margin:0 0 16px;padding-left:20px}.card li{margin-bottom:8px}
+.card .note{background:var(--sel);border-left:4px solid var(--blue);padding:10px 14px;border-radius:4px;font-size:13px;margin-bottom:20px}
+.big{padding:10px 28px;font-size:16px}
+.rst{color:var(--bad);border-color:var(--bad)}
+.rst:hover:not(:disabled){background:var(--badbg)}
+.score.done{cursor:pointer;box-shadow:0 0 0 2px rgba(255,255,255,.6)}
+.ov{position:fixed;inset:0;z-index:30;background:rgba(10,30,60,.75);display:grid;place-items:center;padding:20px;overflow:auto;transition:opacity .3s,visibility .3s}
+.ov.off{opacity:0;visibility:hidden;pointer-events:none}
+.sm{max-width:440px}
+.rc{text-align:center}
+.rlabel{text-transform:uppercase;letter-spacing:1.5px;font-size:12px;color:var(--mute)}
+.bigscore{font-size:88px;font-weight:700;line-height:1.1;color:var(--tc,var(--blue))}
+.bigscore span{font-size:34px;opacity:.55;margin-left:8px}
+.rc h2{color:var(--tc,var(--blue))}
+.t-g{--tc:#107c10}.t-y{--tc:#b07d00}.t-o{--tc:#ca5010}.t-r{--tc:#c50f1f}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:18px 0}
+.st{border:1px solid var(--line);border-radius:6px;padding:8px 4px}
+.st b{display:block;font-size:26px}.st small{color:var(--mute);font-size:11.5px}
+.st.ok b{color:var(--ok)}.st.bad b{color:var(--bad)}
+.btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+@media(max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:auto 38% 1fr}.nav{flex-direction:row;flex-wrap:wrap}.fold,.prog{display:none}#lw{border-right:0;border-bottom:1px solid var(--line)}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="tb"><h1>EML Analyser</h1><button id="help" class="hb">How it works</button><div id="score" class="score">Score <b>0</b><span class="of">/ 10</span></div></div>
+<main class="app">
+  <aside class="nav">
+    <button id="add" class="primary">Add .eml files</button>
+    <button id="restore">Restore samples</button>
+    <button id="reset" class="rst">Reset</button>
+    <div class="fold"><span>Inbox</span><span id="cnt"></span></div>
+    <div class="prog" id="prog"></div>
+    <input id="file" type="file" accept=".eml,message/rfc822" multiple hidden>
+  </aside>
+  <div id="lw"><div id="imp"></div><div id="list" role="list"></div></div>
+  <section id="reader"></section>
+</main>
+<div id="drop">Drop .eml files to add them to the inbox</div>
+<div id="splash"><div class="card">
+  <h2>Welcome to EML Analyser</h2>
+  <p>A safe practice inbox for spotting phishing. You examine realistic emails the way a security analyst would, then decide whether each one is phishing or legitimate.</p>
+  <ol>
+    <li><b>Open an email</b> from the inbox on the left.</li>
+    <li><b>Investigate it.</b> Read the Message, check the Headers (From, Reply-To, Return-Path and the SPF/DKIM/DMARC results), compare each link's text with its real destination in Links, and look at Attachments.</li>
+    <li><b>Decide.</b> Click PHISHING or LEGITIMATE. You get one answer per email, and the result is named True Positive, True Negative, False Positive or False Negative.</li>
+    <li><b>Watch your score</b> in the top right. Answer all 10 emails to see your final results. Reset (left side) starts over.</li>
+    <li><b>Use your own emails.</b> Add .eml files with the button or by dragging them onto the page, and remove any email with Remove.</li>
+  </ol>
+  <div class="note">Safe by design: everything runs in your browser and nothing is uploaded. Links are disabled, attachments are never opened, and every company and domain in the sample emails is fictional.</div>
+  <button id="go" class="primary big">Start analysing</button>
+</div></div>
+<div id="res" class="ov off"><div class="card rc">
+  <div class="rlabel">Final score</div>
+  <div class="bigscore" id="rscore">0</div>
+  <h2 id="rtitle"></h2><p id="rmsg"></p>
+  <div class="stats" id="rstats"></div>
+  <div class="btns"><button id="rreset" class="primary big">Reset and try again</button><button id="rclose" class="big">Review my answers</button></div>
+</div></div>
+<div id="cf" class="ov off"><div class="card sm">
+  <h2>Reset everything?</h2>
+  <p>This clears your answers and score, restores all 10 sample emails, and removes any emails you added.</p>
+  <div class="btns"><button id="cfy" class="primary big">Yes, reset</button><button id="cfn" class="big">Cancel</button></div>
+</div></div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let db=null,items=[],sel=null,tab='message',remote=false,memId=0;
+
+/* ---------- storage (IndexedDB, falls back to memory) ---------- */
+const openDB=()=>new Promise((res,rej)=>{const r=indexedDB.open('eml-inbox',1);r.onupgradeneeded=()=>r.result.createObjectStore('emails',{keyPath:'id',autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const tx=(mode,fn)=>new Promise((res,rej)=>{const t=db.transaction('emails',mode);const q=fn(t.objectStore('emails'));t.oncomplete=()=>res(q&&q.result);t.onerror=()=>rej(t.error)});
+
+/* ---------- byte / text helpers ---------- */
+const toBin=buf=>{const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=8192)s+=String.fromCharCode.apply(null,u.subarray(i,i+8192));return s};
+const toBytes=s=>{const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i)&255;return u};
+const dec=(b,cs)=>{try{return new TextDecoder(cs||'utf-8').decode(b)}catch{return new TextDecoder('utf-8').decode(b)}};
+const dataUrl=a=>'data:'+a.type+';base64,'+btoa(toBin(a.bytes));
+
+/* ---------- MIME parsing ---------- */
+function splitMsg(s){const m=/\r?\n\r?\n/.exec(s);return m?[s.slice(0,m.index),s.slice(m.index+m[0].length)]:[s,'']}
+function parseHeaders(h){const o={};h.replace(/\r?\n[ \t]+/g,' ').split(/\r?\n/).forEach(l=>{const i=l.indexOf(':');if(i<1)return;const k=l.slice(0,i).trim().toLowerCase();(o[k]=o[k]||[]).push(l.slice(i+1).trim())});return o}
+function words(v){v=(v||'').replace(/(\?=)\s+(=\?)/g,'$1$2');if(/[\x80-\xff]/.test(v))v=dec(toBytes(v));
+  return v.replace(/=\?([^?*]+)(?:\*[^?]*)?\?([bq])\?([^?]*)\?=/gi,(m,cs,e,t)=>{try{const b=e.toLowerCase()=='b'?toBytes(atob(t)):toBytes(t.replace(/_/g,' ').replace(/=([0-9a-f]{2})/gi,(x,h)=>String.fromCharCode(parseInt(h,16))));return dec(b,cs)}catch{return m}})}
+function params(v){v=v||'';const o={},main=v.split(';')[0].trim().toLowerCase(),re=/;\s*([\w*.-]+)\s*=\s*(?:"((?:[^"\\]|\\.)*)"|([^;]*))/g;let m;
+  while(m=re.exec(v)){let k=m[1].toLowerCase(),val=(m[2]!==undefined?m[2]:m[3]).trim();
+    if(k.endsWith('*')){k=k.slice(0,-1);const x=/^([^']*)'[^']*'(.*)$/.exec(val);if(x){try{val=dec(toBytes(unescape(x[2])),x[1])}catch{}}}
+    o[k]=val}
+  return[main,o]}
+function decodeCTE(b,e){e=(e||'').toLowerCase();
+  if(e=='base64'){try{return atob(b.replace(/[^A-Za-z0-9+/=]/g,''))}catch{return''}}
+  if(e=='quoted-printable')return b.replace(/=\r?\n/g,'').replace(/=([0-9a-f]{2})/gi,(m,h)=>String.fromCharCode(parseInt(h,16)));
+  return b}
+function walk(raw,out){
+  const[h,b]=splitMsg(raw),hd=parseHeaders(h),[type,p]=params((hd['content-type']||['text/plain'])[0]),[disp,dp]=params((hd['content-disposition']||[''])[0]);
+  if(type.startsWith('multipart/')&&p.boundary){
+    b.split('--'+p.boundary).slice(1).forEach(x=>{if(!x.startsWith('--'))walk(x.replace(/^\r?\n/,'').replace(/\r?\n$/,''),out)});return}
+  const name=dp.filename||p.name,bytes=toBytes(decodeCTE(b,(hd['content-transfer-encoding']||[''])[0])),cid=((hd['content-id']||[''])[0]).replace(/[<>]/g,'');
+  if((type=='text/plain'||type=='text/html')&&disp!='attachment'&&!name){out[type=='text/html'?'html':'text']+=dec(bytes,p.charset);return}
+  out.att.push({name:words(name||'(unnamed)'),type:type||'application/octet-stream',bytes,cid})}
+function addr(v){const m=/^\s*"?(.*?)"?\s*<([^>]+)>\s*$/.exec(v||'');return m?{name:m[1]||m[2],addr:m[2]}:{name:v||'(unknown)',addr:v||''}}
+function parseEml(buf,fallbackTs){
+  const raw=toBin(buf),[h]=splitMsg(raw),hd=parseHeaders(h),g=k=>words((hd[k]||[''])[0]);
+  const out={html:'',text:'',att:[]};walk(raw,out);
+  const plain=out.text||(out.html?new DOMParser().parseFromString(out.html,'text/html').body.textContent:'');
+  const date=g('date'),ts=Date.parse(date);
+  return{...out,rawHeaders:h,subject:g('subject'),from:addr(g('from')),to:g('to'),cc:g('cc'),replyTo:g('reply-to'),date,ts:isNaN(ts)?fallbackTs:ts,snip:plain.replace(/\s+/g,' ').trim().slice(0,140)}}
+
+/* ---------- link analysis ---------- */
+const host=u=>{try{return new URL(u).hostname.replace(/^www\./,'').toLowerCase()}catch{return''}};
+function getLinks(m){const L=[];
+  if(m.html)new DOMParser().parseFromString(m.html,'text/html').querySelectorAll('a[href]').forEach(a=>L.push({text:a.textContent.trim().replace(/\s+/g,' ')||'(image or empty)',href:a.getAttribute('href')}));
+  const seen=new Set(L.map(l=>l.href));(m.text.match(/https?:\/\/[^\s<>"')]+/g)||[]).forEach(u=>{if(!seen.has(u)){seen.add(u);L.push({text:u,href:u})}});return L}
+function mismatch(l){const t=l.text.match(/(?:https?:\/\/)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)/i),a=host(l.href);return !!(t&&a&&t[1].toLowerCase().replace(/^www\./,'')!==a)}
+
+/* ---------- safe HTML for the sandboxed iframe ---------- */
+function safeHtml(m){
+  const d=new DOMParser().parseFromString(m.html,'text/html');
+  d.querySelectorAll('script,iframe,object,embed,meta,base,link,form').forEach(e=>e.remove());
+  d.querySelectorAll('a[href]').forEach(a=>{a.title=a.getAttribute('href');a.removeAttribute('href');a.style.cursor='pointer'});
+  d.querySelectorAll('img[src^="cid:" i]').forEach(i=>{let c=i.getAttribute('src').slice(4);try{c=decodeURIComponent(c)}catch{}const a=m.att.find(x=>x.cid===c);if(a)i.src=dataUrl(a)});
+  const csp=`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:${remote?' https: http:':''}; style-src 'unsafe-inline'; form-action 'none'">`;
+  return csp+'<style>html{background:#fff;color:#222;font-family:system-ui,sans-serif}</style>'+d.documentElement.outerHTML}
+
+/* ---------- formatting ---------- */
+const fmtDate=(m,long)=>{if(isNaN(Date.parse(m.date)))return m.date||'';const d=new Date(m.ts);if(long)return d.toLocaleString([], {dateStyle:'medium',timeStyle:'short'});return d.toDateString()==new Date().toDateString()?d.toLocaleTimeString([], {timeStyle:'short'}):d.toLocaleDateString([], {month:'short',day:'numeric',year:'numeric'})};
+const size=n=>n<1024?n+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB';
+
+/* ---------- rendering ---------- */
+const COLORS=['#0f6cbd','#8764b8','#038387','#c239b3','#ca5010','#498205','#986f0b','#4f6bed'];
+const hue=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))%COLORS.length;return COLORS[h]};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const keyOf=i=>i.name+':'+i.buf.byteLength;
+const slim=r=>{const o={name:r.name,buf:r.buf,read:r.read,added:r.added,truth:r.truth,bundled:r.bundled};if(r.id!=null)o.id=r.id;return o};
+const persist=r=>{if(db&&r.id>0)tx('readwrite',s=>s.put(slim(r))).catch(()=>{})};
+let ans={};try{ans=JSON.parse(localStorage.getItem('eml-answers')||'{}')}catch{}
+const saveAns=()=>{try{localStorage.setItem('eml-answers',JSON.stringify(ans))}catch{}};
+const fresh=new Set();
+function outcome(t,a){
+  if(t=='phish'&&a=='phish')return['ok','True Positive','You flagged a phishing email as phishing.'];
+  if(t=='legit'&&a=='legit')return['ok','True Negative','You correctly trusted a legitimate email.'];
+  if(t=='legit')return['bad','False Positive','You flagged a legitimate email as phishing: a false alarm.'];
+  return['bad','False Negative','You trusted a phishing email: the dangerous miss.']}
+function renderList(){
+  items.sort((a,b)=>b.msg.ts-a.msg.ts);
+  const c=BK.filter(b=>ans[b.k]==b.t).length,d=BK.filter(b=>ans[b.k]).length,TOTAL=BK.length||10;
+  $('#score').innerHTML=`Score <b>${c}</b><span class="of">/ ${TOTAL}</span>`;
+  $('#score').classList.toggle('perfect',c==TOTAL);$('#score').classList.toggle('done',d==TOTAL);$('#score').title=d==TOTAL?'Click to see your results':'';
+  $('#prog').textContent=`${d} of ${TOTAL} reviewed`;
+  $('#cnt').textContent=items.length||'';let stag=0;
+  $('#list').innerHTML=items.length?items.map(i=>{const a=ans[keyOf(i)];return `<div class="row${i.id===sel?' sel':''}${i.read?'':' unread'}${fresh.has(i.id)?' enter':''}" role="listitem" tabindex="0" data-id="${i.id}"${fresh.has(i.id)?` style="animation-delay:${stag++*70}ms"`:''}><div class="av" style="background:${hue(i.msg.from.name)}">${esc((i.msg.from.name[0]||'?').toUpperCase())}</div><div class="rc"><div class="r1"><span class="fr">${esc(i.msg.from.name)}</span><span class="dt">${esc(fmtDate(i.msg))}${a?`<span class="mk ${a==i.truth?'ok':'bad'}">${a==i.truth?'\u2713':'\u2717'}</span>`:''}</span></div><div class="sj">${esc(i.msg.subject||'(no subject)')}</div><div class="pv">${esc(i.msg.snip)}</div></div></div>`}).join(''):'<div class="empty">Inbox is empty.<br>Drag .eml files anywhere on this page, or use Add .eml files.</div>';
+  fresh.clear()}
+function renderReader(anim){
+  const i=items.find(x=>x.id==sel),r=$('#reader');
+  if(!i){r.innerHTML='<div class="empty">Select an email to read it.</div>';return}
+  const m=i.msg,L=getLinks(m),a=ans[keyOf(i)],T=[['message','Message'],['headers','Headers'],['links','Links ('+L.length+')'],['att','Attachments ('+m.att.length+')']];
+  let v;
+  if(!i.truth)v='<div class="vbar"><span>Added manually, so it is not scored.</span><span class="sp2"></span><button id="del">Remove</button></div>';
+  else{const o=a&&outcome(i.truth,a);v=`<div class="vbar"><span>Your verdict:</span><button class="v bad${a=='phish'?' picked':''}" data-v="phish"${a?' disabled':''}>PHISHING</button><button class="v ok${a=='legit'?' picked':''}" data-v="legit"${a?' disabled':''}>LEGITIMATE</button><span class="sp2"></span><button id="del">Remove</button></div>`+(o?`<div class="res ${o[0]}"><b>${o[1]}</b> &mdash; ${o[0]=='ok'?'correct':'incorrect'}<small>${o[2]}</small></div>`:'')}
+  r.innerHTML=`<div class="fw${anim?' anim':''}">${v}<div class="rh"><h2>${esc(m.subject||'(no subject)')}</h2><div class="sender"><div class="av" style="background:${hue(m.from.name)}">${esc((m.from.name[0]||'?').toUpperCase())}</div><div class="meta"><div><b>${esc(m.from.name)}</b> <span class="adr">&lt;${esc(m.from.addr)}&gt;</span></div><div>To: ${esc(m.to)}${m.cc?' &nbsp; Cc: '+esc(m.cc):''}</div>${m.replyTo?`<div>Reply-To: <span class="adr">${esc(m.replyTo)}</span></div>`:''}<div>${esc(fmtDate(m,true))}</div></div></div></div><nav class="tabs">${T.map(t=>`<button data-tab="${t[0]}" class="${t[0]==tab?'on':''}">${t[1]}</button>`).join('')}</nav><div class="body" id="body"></div></div>`;
+  const b=$('#body');
+  if(tab=='message'){
+    if(m.html){b.innerHTML=`<div class="bar"><label><input type="checkbox" id="rem"${remote?' checked':''}> Load remote images (can reveal that the email was opened)</label><span>Links are disabled. Hover a link to see its destination.</span></div><iframe sandbox title="Email body"></iframe>`;b.querySelector('iframe').srcdoc=safeHtml(m)}
+    else b.innerHTML=`<div class="paper"><pre class="txt">${esc(m.text).replace(/(https?:\/\/[^\s<>]+?)(?=&quot;|&gt;|\s|$)/g,'<span class="url">$1</span>')||'(empty body)'}</pre></div>`}
+  else if(tab=='headers'){
+    const key=/^(from|reply-to|return-path|received|received-spf|authentication-results|dkim-signature|message-id|x-mailer|sender)\s*:/i;
+    b.innerHTML=m.rawHeaders.split(/\r?\n(?=\S)/).map(f=>`<div class="hf${key.test(f)?' key':''}">${esc(f).replace(/\b(spf|dkim|dmarc)=(\w+)/gi,(x,k,q)=>`<span class="${/^pass$/i.test(q)?'g':/^none$/i.test(q)?'o':'r'}">${x}</span>`)}</div>`).join('')}
+  else if(tab=='links'){
+    b.innerHTML=L.length?`<table><tr><th>Text shown</th><th>Actual destination</th></tr>${L.map(l=>`<tr class="${mismatch(l)?'bad':''}"><td>${esc(l.text)}${mismatch(l)?'<div class="tag">Text does not match destination</div>':''}</td><td class="u">${esc(l.href)}</td></tr>`).join('')}</table>`:'<div class="empty">No links found.</div>'}
+  else b.innerHTML=m.att.length?`<table><tr><th>File</th><th>Type</th><th>Size</th><th></th></tr>${m.att.map((x,n)=>`<tr><td>${esc(x.name)}</td><td>${esc(x.type)}</td><td>${size(x.bytes.length)}</td><td><button data-dl="${n}">Download</button></td></tr>`).join('')}</table>`:'<div class="empty">No attachments.</div>'}
+const render=()=>{renderList();renderReader(true)};
+
+/* ---------- actions ---------- */
+const BK=[],gone=new Set();try{JSON.parse(localStorage.getItem('eml-removed')||'[]').forEach(n=>gone.add(n))}catch{}
+const saveGone=()=>{try{localStorage.setItem('eml-removed',JSON.stringify([...gone]))}catch{}};
+async function drop(r){items=items.filter(x=>x!==r);if(sel==r.id)sel=null;if(r.bundled){gone.add(r.name);saveGone()}else if(db&&r.id>0)await tx('readwrite',s=>s.delete(r.id)).catch(()=>{})}
+async function addBuf(name,buf,meta={}){
+  const ex=items.find(x=>x.name==name);
+  if(ex&&ex.buf.byteLength==buf.byteLength){Object.assign(ex,meta);persist(ex);return null}
+  if(ex)await drop(ex);
+  const rec={name,buf,read:false,added:Date.now(),...meta};
+  if(db){try{rec.id=await tx('readwrite',s=>s.add(slim(rec)))}catch{rec.id=--memId}}else rec.id=--memId;
+  rec.msg=parseEml(buf,rec.added);items.push(rec);return rec}
+async function importQueue(q){
+  if(!q.length)return;const bar=$('#imp');bar.classList.add('on');
+  for(let n=0;n<q.length;n++){
+    bar.innerHTML=`<div class="sp"></div><span>Importing ${n+1} of ${q.length}: ${esc(q[n].name)}</span><i style="width:${n/q.length*100}%"></i>`;
+    await sleep(450);
+    const rec=await q[n].run();
+    if(rec){fresh.add(rec.id);if(sel==null)sel=rec.id;renderList();renderReader(true)}}
+  bar.querySelector('i').style.width='100%';await sleep(350);bar.classList.remove('on')}
+const addFiles=files=>importQueue([...files].filter(f=>/\.eml$/i.test(f.name)||f.type=='message/rfc822').map(f=>({name:f.name,run:async()=>addBuf(f.name,await f.arrayBuffer())})));
+function open(id){sel=id;const i=items.find(x=>x.id==id);if(i&&!i.read){i.read=true;persist(i)}renderList();renderReader(true)}
+$('#list').onclick=e=>{const r=e.target.closest('.row');if(r)open(+r.dataset.id)};
+$('#list').onkeydown=e=>{if(e.key=='Enter'){const r=e.target.closest('.row');if(r)open(+r.dataset.id)}};
+$('#reader').onclick=async e=>{
+  const t=e.target.closest('[data-tab]');if(t){tab=t.dataset.tab;renderReader();return}
+  const v=e.target.closest('[data-v]');
+  if(v&&!v.disabled){const i=items.find(x=>x.id==sel);ans[keyOf(i)]=v.dataset.v;saveAns();renderList();renderReader();const s=$('#score');s.classList.remove('bump');void s.offsetWidth;s.classList.add('bump');if(allDone())setTimeout(showResults,1500);return}
+  const d=e.target.closest('[data-dl]');
+  if(d){const a=items.find(x=>x.id==sel).msg.att[+d.dataset.dl],u=URL.createObjectURL(new Blob([a.bytes],{type:a.type})),l=document.createElement('a');l.href=u;l.download=a.name;l.click();setTimeout(()=>URL.revokeObjectURL(u),2000);return}
+  if(e.target.id=='del'){await drop(items.find(x=>x.id==sel));sel=items[0]?items[0].id:null;render()}};
+$('#reader').onchange=e=>{if(e.target.id=='rem'){remote=e.target.checked;renderReader()}};
+$('#add').onclick=()=>$('#file').click();
+$('#file').onchange=e=>{addFiles(e.target.files);e.target.value=''};
+const allDone=()=>BK.length>0&&BK.every(b=>ans[b.k]);
+function showResults(){
+  const c=BK.filter(b=>ans[b.k]==b.t).length,T=BK.length,n=(t,a)=>BK.filter(b=>b.t==t&&ans[b.k]==a).length;
+  const tiers=[[10,'t-g','Perfect score!','Flawless. Phishing does not stand a chance against you.'],[9,'t-g','Awesome job!','You spotted nearly everything. Sharp eyes.'],[7,'t-y','Nice work, analyst','Solid instincts. Review the ones you missed and you will be unstoppable.'],[5,'t-o','Not bad, keep going','You caught about half. Look harder at headers and link destinations next time.'],[3,'t-o','Next time, champ','The phishers got you a few times this round. Study the red flags and take another swing.'],[0,'t-r','Rough round','Every analyst starts somewhere. Hit reset and dig into the headers and links.']];
+  const t=tiers.find(x=>c*10>=T*x[0]),card=$('#res .card');
+  card.className='card rc '+t[1];card.style.animation='none';void card.offsetWidth;card.style.animation='';
+  $('#rtitle').textContent=t[2];$('#rmsg').textContent=t[3];
+  $('#rstats').innerHTML=[['True Positive',n('phish','phish'),'ok'],['True Negative',n('legit','legit'),'ok'],['False Positive',n('legit','phish'),'bad'],['False Negative',n('phish','legit'),'bad']].map(x=>`<div class="st ${x[2]}"><b>${x[1]}</b><small>${x[0]}</small></div>`).join('');
+  $('#res').classList.remove('off');
+  const el=$('#rscore');let k=0;const tick=()=>{el.innerHTML=`${k}<span>/ ${T}</span>`;if(k<c){k++;setTimeout(tick,110)}};tick()}
+async function doReset(){
+  ans={};saveAns();gone.clear();saveGone();
+  if(db)await tx('readwrite',s=>s.clear()).catch(()=>{});
+  items=[];SREC.forEach(r=>{r.read=false;items.push(r)});
+  sel=null;tab='message';fresh.clear();items.forEach(i=>fresh.add(i.id));
+  renderList();if(items[0])open(items[0].id);else render()}
+$('#reset').onclick=()=>$('#cf').classList.remove('off');
+$('#cfn').onclick=()=>$('#cf').classList.add('off');
+$('#cfy').onclick=async()=>{$('#cf').classList.add('off');await doReset()};
+$('#rreset').onclick=async()=>{$('#res').classList.add('off');await doReset()};
+$('#rclose').onclick=()=>$('#res').classList.add('off');
+$('#score').onclick=()=>{if(allDone())showResults()};
+$('#restore').onclick=()=>{gone.clear();saveGone();importQueue(sampleQueue())};
+$('#help').onclick=()=>$('#splash').classList.remove('off');
+let dragN=0;
+addEventListener('dragenter',e=>{if([...e.dataTransfer.types].includes('Files')){dragN++;$('#drop').classList.add('on')}});
+addEventListener('dragleave',()=>{if(--dragN<=0){dragN=0;$('#drop').classList.remove('on')}});
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>{e.preventDefault();dragN=0;$('#drop').classList.remove('on');addFiles(e.dataTransfer.files)});
+
+/* ---------- startup ---------- */
+const SAMPLES=[{"i":0,"n":"01-account-suspended.eml","v":"cGhpc2g=","d":"UmV0dXJuLVBhdGg6IDxib3VuY2VAbWFpbGVyLXhrOTIuZXhhbXBsZT4NClJlY2VpdmVkOiBmcm9tIHJlbGF5Lm1haWxlci14azkyLmV4YW1wbGUgKDIwMy4wLjExMy40NSkNCglieSBteC5yaWRnZXZpZXcuZXhhbXBsZSB3aXRoIEVTTVRQUzsgTW9uLCAwOSBOb3YgMjAyNiAwMzoxMjozMCAtMDUwMA0KQXV0aGVudGljYXRpb24tUmVzdWx0czogbXgucmlkZ2V2aWV3LmV4YW1wbGU7IHNwZj1mYWlsIHNtdHAubWFpbGZyb209bWFpbGVyLXhrOTIuZXhhbXBsZTsgZGtpbT1ub25lOyBkbWFyYz1mYWlsIGhlYWRlci5mcm9tPW5vcnRod2luZC1zZWN1cmUtbG9naW4uZXhhbXBsZQ0KRnJvbTogIk5vcnRod2luZCBCYW5rIFNlY3VyaXR5IiA8YWxlcnRAbm9ydGh3aW5kLXNlY3VyZS1sb2dpbi5leGFtcGxlPg0KUmVwbHktVG86IHN1cHBvcnQubm9ydGh3aW5kQG1haWwtaGVscGRlc2suZXhhbXBsZQ0KVG86IHN0dWRlbnRAcmlkZ2V2aWV3LmV4YW1wbGUNClN1YmplY3Q6IFVSR0VOVCEhISBZb3VyIGFjY291bnQgd2lsbCBiZSBDTE9TRUQgaW4gMjQgaG91cnMNCkRhdGU6IE1vbiwgMDkgTm92IDIwMjYgMDM6MTI6MzAgLTA1MDANCk1lc3NhZ2UtSUQ6IDw4ODQxLjIyMUBtYWlsZXIteGs5Mi5leGFtcGxlPg0KTUlNRS1WZXJzaW9uOiAxLjANCkNvbnRlbnQtVHlwZTogbXVsdGlwYXJ0L2FsdGVybmF0aXZlOyBib3VuZGFyeT0iYjEiDQoNCi0tYjENCkNvbnRlbnQtVHlwZTogdGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOA0KDQpEZWFyIEN1c3RvbWVyLA0KDQpXZSBkZXRlY3RlZCB1bnVzdWFsIGFjdGl2aXR5IG9uIHlvdXIgYWNjb3VudC4gSXQgd2lsbCBiZSBDTE9TRUQgd2l0aGluIDI0IGhvdXJzIHVubGVzcyB5b3UgdmVyaWZ5IHlvdXIgaWRlbnRpdHkgaW1tZWRpYXRlbHkuDQoNClZlcmlmeSBub3c6IGh0dHBzOi8vd3d3Lm5vcnRod2luZGJhbmsuZXhhbXBsZS92ZXJpZnkNCg0KRmFpbHVyZSB0byByZXNwb25kIHdpbGwgcmVzdWx0IGluIHBlcm1hbmVudCBsb3NzIG9mIHlvdXIgZnVuZHMuDQotLWIxDQpDb250ZW50LVR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD11dGYtOA0KDQo8aHRtbD48Ym9keSBzdHlsZT0ibWFyZ2luOjA7YmFja2dyb3VuZDojZWVmMGY0O2ZvbnQtZmFtaWx5OkFyaWFsLHNhbnMtc2VyaWYiPjxkaXYgc3R5bGU9Im1heC13aWR0aDo1NjBweDttYXJnaW46MjRweCBhdXRvO2JhY2tncm91bmQ6I2ZmZjtib3JkZXItcmFkaXVzOjhweDtvdmVyZmxvdzpoaWRkZW47Ym9yZGVyOjFweCBzb2xpZCAjZGRlIj48ZGl2IHN0eWxlPSJiYWNrZ3JvdW5kOiNjNjI4Mjg7Y29sb3I6I2ZmZjtwYWRkaW5nOjE4cHggMjRweDtmb250LXNpemU6MjBweDtmb250LXdlaWdodDpib2xkIj5Ob3J0aHdpbmQgQmFuayAmbWlkZG90OyBTZWN1cml0eSBBbGVydDwvZGl2PjxkaXYgc3R5bGU9InBhZGRpbmc6MjRweDtjb2xvcjojMzMzO2ZvbnQtc2l6ZToxNXB4O2xpbmUtaGVpZ2h0OjEuNTUiPjxwPkRlYXIgQ3VzdG9tZXIsPC9wPjxwPldlIGRldGVjdGVkIHVudXN1YWwgYWN0aXZpdHkgb24geW91ciBhY2NvdW50LiBJdCB3aWxsIGJlIDxiIHN0eWxlPSJjb2xvcjojYzYyODI4Ij5DTE9TRUQgd2l0aGluIDI0IGhvdXJzPC9iPiB1bmxlc3MgeW91IHZlcmlmeSB5b3VyIGlkZW50aXR5IGltbWVkaWF0ZWx5LjwvcD48cD48YSBocmVmPSJodHRwOi8vbm9ydGh3aW5kLXNlY3VyZS1sb2dpbi5leGFtcGxlL3ZlcmlmeT9pZD04ODIxMyIgc3R5bGU9ImRpc3BsYXk6aW5saW5lLWJsb2NrO2JhY2tncm91bmQ6I2M2MjgyODtjb2xvcjojZmZmO3BhZGRpbmc6MTJweCAyNHB4O2JvcmRlci1yYWRpdXM6NXB4O3RleHQtZGVjb3JhdGlvbjpub25lO2ZvbnQtd2VpZ2h0OmJvbGQiPlZlcmlmeSBOb3c8L2E+PC9wPjxwPjxhIGhyZWY9Imh0dHA6Ly9ub3J0aHdpbmQtc2VjdXJlLWxvZ2luLmV4YW1wbGUvdmVyaWZ5P2lkPTg4MjEzIiBzdHlsZT0iY29sb3I6IzFhNTZjNCI+aHR0cHM6Ly93d3cubm9ydGh3aW5kYmFuay5leGFtcGxlL3ZlcmlmeTwvYT48L3A+PHAgc3R5bGU9ImNvbG9yOiNjNjI4MjgiPjxiPkZhaWx1cmUgdG8gcmVzcG9uZCB3aWxsIHJlc3VsdCBpbiBwZXJtYW5lbnQgbG9zcyBvZiB5b3VyIGZ1bmRzLjwvYj48L3A+PC9kaXY+PGRpdiBzdHlsZT0iYmFja2dyb3VuZDojZjZmN2Y5O2NvbG9yOiM4YThmOTg7Zm9udC1zaXplOjEycHg7cGFkZGluZzoxNHB4IDI0cHgiPk5vcnRod2luZCBCYW5rIFNlY3VyaXR5IFRlYW08L2Rpdj48L2Rpdj48L2JvZHk+PC9odG1sPg0KLS1iMS0tDQo="},{"i":1,"n":"02-package-redelivery.eml","v":"cGhpc2g=","d":"UmV0dXJuLVBhdGg6IDxpbmZvQHBwLXJlZGVsaXZlci5leGFtcGxlPg0KUmVjZWl2ZWQ6IGZyb20gcmVsYXkucHAtcmVkZWxpdmVyLmV4YW1wbGUgKDE5OC41MS4xMDAuMjMpDQoJYnkgbXgucmlkZ2V2aWV3LmV4YW1wbGUgd2l0aCBFU01UUFM7IFNhdCwgMTQgTm92IDIwMjYgMDc6NDA6NTUgLTA1MDANCkF1dGhlbnRpY2F0aW9uLVJlc3VsdHM6IG14LnJpZGdldmlldy5leGFtcGxlOyBzcGY9c29mdGZhaWwgc210cC5tYWlsZnJvbT1wcC1yZWRlbGl2ZXIuZXhhbXBsZTsgZGtpbT1ub25lOyBkbWFyYz1ub25lDQpGcm9tOiAiUGFyY2VsUG9pbnQgRGVsaXZlcnkiIDxub3JlcGx5QHBhcmNlbHBvaW50LXRyYWNrLmV4YW1wbGU+DQpUbzogc3R1ZGVudEByaWRnZXZpZXcuZXhhbXBsZQ0KU3ViamVjdDogRGVsaXZlcnkgYXR0ZW1wdCBmYWlsZWQgLSBhY3Rpb24gcmVxdWlyZWQNCkRhdGU6IFNhdCwgMTQgTm92IDIwMjYgMDc6NDA6NTUgLTA1MDANCk1lc3NhZ2UtSUQ6IDxhOTFmQHNtdHA3LnBwLXJlZGVsaXZlci5leGFtcGxlPg0KTUlNRS1WZXJzaW9uOiAxLjANCkNvbnRlbnQtVHlwZTogdGV4dC9odG1sOyBjaGFyc2V0PXV0Zi04DQpDb250ZW50LVRyYW5zZmVyLUVuY29kaW5nOiBxdW90ZWQtcHJpbnRhYmxlDQoNCjxodG1sPjxib2R5IHN0eWxlPTNEIm1hcmdpbjowO2JhY2tncm91bmQ6I2VlZjBmNDtmb250LWZhbWlseTpBcmlhbCxzYW5zLXNlcj0NCmlmIj48ZGl2IHN0eWxlPTNEIm1heC13aWR0aDo1NjBweDttYXJnaW46MjRweCBhdXRvO2JhY2tncm91bmQ6I2ZmZjtib3JkZXItcj0NCmFkaXVzOjhweDtvdmVyZmxvdzpoaWRkZW47Ym9yZGVyOjFweCBzb2xpZCAjZGRlIj48ZGl2IHN0eWxlPTNEImJhY2tncm91bmQ6Iz0NCmU2NTEwMDtjb2xvcjojZmZmO3BhZGRpbmc6MThweCAyNHB4O2ZvbnQtc2l6ZToyMHB4O2ZvbnQtd2VpZ2h0OmJvbGQiPlBhcmNlbD0NClBvaW50IERlbGl2ZXJ5PC9kaXY+PGRpdiBzdHlsZT0zRCJwYWRkaW5nOjI0cHg7Y29sb3I6IzMzMztmb250LXNpemU6MTVweDtsaT0NCm5lLWhlaWdodDoxLjU1Ij48cD5IZWxsbyw8L3A+PHA+V2UgdHJpZWQgdG8gZGVsaXZlciB5b3VyIHBhY2thZ2UgdG9kYXkgYnV0ID0NCm5vYm9keSB3YXMgYXZhaWxhYmxlLiBUbyBhdm9pZCByZXR1cm4gdG8gc2VuZGVyLCBwYXkgYSBzbWFsbCByZWRlbGl2ZXJ5IGZlZT0NCiBvZiA8YiBzdHlsZT0zRCJjb2xvcjojZTY1MTAwIj4kMS45OTwvYj4gd2l0aGluIDEyIGhvdXJzLjwvcD48cD48YSBocmVmPTNEIj0NCmh0dHA6Ly9wcC1yZWRlbGl2ZXIuZXhhbXBsZS9yLzg4MTIiIHN0eWxlPTNEImRpc3BsYXk6aW5saW5lLWJsb2NrO2JhY2tncm91bj0NCmQ6I2U2NTEwMDtjb2xvcjojZmZmO3BhZGRpbmc6MTJweCAyNHB4O2JvcmRlci1yYWRpdXM6NXB4O3RleHQtZGVjb3JhdGlvbjpubz0NCm5lO2ZvbnQtd2VpZ2h0OmJvbGQiPlJlc2NoZWR1bGUgZGVsaXZlcnk8L2E+PC9wPjxwIHN0eWxlPTNEImNvbG9yOiM3NzciPlRyYT0NCmNraW5nIG51bWJlcjogUFAtNDQ3MS0wMDkyLTg4MTM8L3A+PC9kaXY+PGRpdiBzdHlsZT0zRCJiYWNrZ3JvdW5kOiNmNmY3Zjk7Yz0NCm9sb3I6IzhhOGY5ODtmb250LXNpemU6MTJweDtwYWRkaW5nOjE0cHggMjRweCI+UGFyY2VsUG9pbnQgQ3VzdG9tZXIgQ2FyZTwvZD0NCml2PjwvZGl2PjwvYm9keT48L2h0bWw+DQo="},{"i":2,"n":"03-gift-cards-request.eml","v":"cGhpc2g=","d":"UmV0dXJuLVBhdGg6IDxlbGFpbmUubWFyc2gucHJlc2lkZW50QGdtYWlsLmV4YW1wbGU+DQpSZWNlaXZlZDogZnJvbSByZWxheS5nbWFpbC5leGFtcGxlICgxOTIuMC4yLjc3KQ0KCWJ5IG14LnJpZGdldmlldy5leGFtcGxlIHdpdGggRVNNVFBTOyBUdWUsIDEwIE5vdiAyMDI2IDEwOjAyOjAxIC0wNTAwDQpBdXRoZW50aWNhdGlvbi1SZXN1bHRzOiBteC5yaWRnZXZpZXcuZXhhbXBsZTsgc3BmPXBhc3Mgc210cC5tYWlsZnJvbT1nbWFpbC5leGFtcGxlOyBka2ltPXBhc3MgaGVhZGVyLmQ9Z21haWwuZXhhbXBsZTsgZG1hcmM9cGFzcyBoZWFkZXIuZnJvbT1nbWFpbC5leGFtcGxlDQpGcm9tOiAiRHIuIEVsYWluZSBNYXJzaCIgPGVsYWluZS5tYXJzaC5wcmVzaWRlbnRAZ21haWwuZXhhbXBsZT4NClJlcGx5LVRvOiBlbWFyc2gub2ZmaWNlQG91dGxvb2stbWFpbC5leGFtcGxlDQpUbzogIlByaXlhIE5haXIiIDxmaW5hbmNlQHJpZGdldmlldy5leGFtcGxlPg0KU3ViamVjdDogUXVpY2sgZmF2b3INCkRhdGU6IFR1ZSwgMTAgTm92IDIwMjYgMTA6MDI6MDEgLTA1MDANCk1lc3NhZ2UtSUQ6IDxDQUszeDlAbWFpbC5nbWFpbC5leGFtcGxlPg0KTUlNRS1WZXJzaW9uOiAxLjANCkNvbnRlbnQtVHlwZTogdGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOA0KDQpQcml5YSwNCg0KQXJlIHlvdSBhdCB5b3VyIGRlc2s/IEkgYW0gaGVhZGluZyBpbnRvIGEgYm9hcmQgbWVldGluZyBhbmQgY2Fubm90IHRha2UgY2FsbHMuDQoNCkkgbmVlZCB5b3UgdG8gYnV5IDUgZ2lmdCBjYXJkcywgJDIwMCBlYWNoLCBmb3IgYSBkb25vciBhcHByZWNpYXRpb24gZXZlbnQgdGhpcyBhZnRlcm5vb24uIFBsZWFzZSBrZWVwIHRoaXMgYmV0d2VlbiB1cyB1bnRpbCB0aGUgZXZlbnQuIEkgd2lsbCByZWltYnVyc2UgeW91IHRvZGF5Lg0KDQpTY3JhdGNoIG9mZiB0aGUgYmFja3MgYW5kIHJlcGx5IHdpdGggdGhlIGNvZGVzIGFzIHNvb24gYXMgeW91IGhhdmUgdGhlbS4NCg0KVGhhbmtzLA0KRWxhaW5lDQoNClNlbnQgZnJvbSBteSBpUGhvbmUNCg=="},{"i":3,"n":"04-wifi-maintenance.eml","v":"bGVnaXQ=","d":"UmV0dXJuLVBhdGg6IDxpdHNlcnZpY2VzQHJpZGdldmlldy5leGFtcGxlPg0KUmVjZWl2ZWQ6IGZyb20gcmVsYXkucmlkZ2V2aWV3LmV4YW1wbGUgKDEwLjIwLjQuMTUpDQoJYnkgbXgucmlkZ2V2aWV3LmV4YW1wbGUgd2l0aCBFU01UUFM7IFdlZCwgMTEgTm92IDIwMjYgMDk6MDA6MDAgLTA1MDANCkF1dGhlbnRpY2F0aW9uLVJlc3VsdHM6IG14LnJpZGdldmlldy5leGFtcGxlOyBzcGY9cGFzcyBzbXRwLm1haWxmcm9tPXJpZGdldmlldy5leGFtcGxlOyBka2ltPXBhc3MgaGVhZGVyLmQ9cmlkZ2V2aWV3LmV4YW1wbGU7IGRtYXJjPXBhc3MgaGVhZGVyLmZyb209cmlkZ2V2aWV3LmV4YW1wbGUNCkZyb206ICJSaWRnZXZpZXcgSVQgU2VydmljZXMiIDxpdHNlcnZpY2VzQHJpZGdldmlldy5leGFtcGxlPg0KVG86IGFsbC1zdHVkZW50c0ByaWRnZXZpZXcuZXhhbXBsZQ0KU3ViamVjdDogU2NoZWR1bGVkIG1haW50ZW5hbmNlOiBjYW1wdXMgV2ktRmksIFNhdHVyZGF5IDItNCBBTQ0KRGF0ZTogV2VkLCAxMSBOb3YgMjAyNiAwOTowMDowMCAtMDUwMA0KTWVzc2FnZS1JRDogPDIwMjYxMTExLTA5MDAtbWFpbnRAcmlkZ2V2aWV3LmV4YW1wbGU+DQpNSU1FLVZlcnNpb246IDEuMA0KQ29udGVudC1UeXBlOiB0ZXh0L2h0bWw7IGNoYXJzZXQ9dXRmLTgNCg0KPGh0bWw+PGJvZHkgc3R5bGU9Im1hcmdpbjowO2JhY2tncm91bmQ6I2VlZjBmNDtmb250LWZhbWlseTpBcmlhbCxzYW5zLXNlcmlmIj48ZGl2IHN0eWxlPSJtYXgtd2lkdGg6NTYwcHg7bWFyZ2luOjI0cHggYXV0bztiYWNrZ3JvdW5kOiNmZmY7Ym9yZGVyLXJhZGl1czo4cHg7b3ZlcmZsb3c6aGlkZGVuO2JvcmRlcjoxcHggc29saWQgI2RkZSI+PGRpdiBzdHlsZT0iYmFja2dyb3VuZDojMGI0ZjhhO2NvbG9yOiNmZmY7cGFkZGluZzoxOHB4IDI0cHg7Zm9udC1zaXplOjIwcHg7Zm9udC13ZWlnaHQ6Ym9sZCI+UmlkZ2V2aWV3IElUIFNlcnZpY2VzPC9kaXY+PGRpdiBzdHlsZT0icGFkZGluZzoyNHB4O2NvbG9yOiMzMzM7Zm9udC1zaXplOjE1cHg7bGluZS1oZWlnaHQ6MS41NSI+PHA+SGVsbG8gc3R1ZGVudHMsPC9wPjxwPkNhbXB1cyBXaS1GaSB3aWxsIGJlIHVuYXZhaWxhYmxlIG9uIDxiIHN0eWxlPSJjb2xvcjojMGI0ZjhhIj5TYXR1cmRheSBmcm9tIDI6MDAgQU0gdG8gNDowMCBBTTwvYj4gd2hpbGUgd2UgdXBncmFkZSBhY2Nlc3MgcG9pbnRzIGluIHRoZSBsaWJyYXJ5IGFuZCByZXNpZGVuY2UgaGFsbHMuPC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vaXQucmlkZ2V2aWV3LmV4YW1wbGUvc3RhdHVzIiBzdHlsZT0iZGlzcGxheTppbmxpbmUtYmxvY2s7YmFja2dyb3VuZDojMGI0ZjhhO2NvbG9yOiNmZmY7cGFkZGluZzoxMnB4IDI0cHg7Ym9yZGVyLXJhZGl1czo1cHg7dGV4dC1kZWNvcmF0aW9uOm5vbmU7Zm9udC13ZWlnaHQ6Ym9sZCI+VmlldyBsaXZlIHN0YXR1czwvYT48L3A+PHA+UXVlc3Rpb25zPyBFbWFpbCA8YSBocmVmPSJtYWlsdG86aGVscGRlc2tAcmlkZ2V2aWV3LmV4YW1wbGUiPmhlbHBkZXNrQHJpZGdldmlldy5leGFtcGxlPC9hPiBvciB2aXNpdCB0aGUgTGlicmFyeSwgUm9vbSAxMTAsIE1vbmRheSB0byBGcmlkYXkuPC9wPjwvZGl2PjxkaXYgc3R5bGU9ImJhY2tncm91bmQ6I2Y2ZjdmOTtjb2xvcjojOGE4Zjk4O2ZvbnQtc2l6ZToxMnB4O3BhZGRpbmc6MTRweCAyNHB4Ij5SaWRnZXZpZXcgSVQgU2VydmljZXMgJm1pZGRvdDsgPGEgaHJlZj0iaHR0cHM6Ly9pdC5yaWRnZXZpZXcuZXhhbXBsZS9zdGF0dXMiPmh0dHBzOi8vaXQucmlkZ2V2aWV3LmV4YW1wbGUvc3RhdHVzPC9hPjwvZGl2PjwvZGl2PjwvYm9keT48L2h0bWw+DQo="},{"i":4,"n":"05-shared-document.eml","v":"cGhpc2g=","d":"UmV0dXJuLVBhdGg6IDxuby1yZXBseUBjbG91ZGRvY3Mtc2hhcmUuZXhhbXBsZT4NClJlY2VpdmVkOiBmcm9tIHJlbGF5LmNsb3VkZG9jcy1zaGFyZS5leGFtcGxlICgxOTguNTEuMTAwLjg4KQ0KCWJ5IG14LnJpZGdldmlldy5leGFtcGxlIHdpdGggRVNNVFBTOyBUaHUsIDEyIE5vdiAyMDI2IDE0OjI2OjMxIC0wNTAwDQpBdXRoZW50aWNhdGlvbi1SZXN1bHRzOiBteC5yaWRnZXZpZXcuZXhhbXBsZTsgc3BmPXBhc3Mgc210cC5tYWlsZnJvbT1jbG91ZGRvY3Mtc2hhcmUuZXhhbXBsZTsgZGtpbT1ub25lOyBkbWFyYz1ub25lDQpGcm9tOiAiTWFyY3VzIFdlYmIgdmlhIENsb3VkRG9jcyIgPG5vLXJlcGx5QGNsb3VkZG9jcy1zaGFyZS5leGFtcGxlPg0KVG86IHN0dWRlbnRAcmlkZ2V2aWV3LmV4YW1wbGUNClN1YmplY3Q6IE1hcmN1cyBXZWJiIHNoYXJlZCAiUTMgQnVkZ2V0IFJldmlldyIgd2l0aCB5b3UNCkRhdGU6IFRodSwgMTIgTm92IDIwMjYgMTQ6MjY6MzEgLTA1MDANCk1lc3NhZ2UtSUQ6IDw3N2MzQHJlbGF5Mi5jbG91ZGRvY3Mtc2hhcmUuZXhhbXBsZT4NCk1JTUUtVmVyc2lvbjogMS4wDQpDb250ZW50LVR5cGU6IG11bHRpcGFydC9taXhlZDsgYm91bmRhcnk9ImI1Ig0KDQotLWI1DQpDb250ZW50LVR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD11dGYtOA0KDQo8aHRtbD48Ym9keSBzdHlsZT0ibWFyZ2luOjA7YmFja2dyb3VuZDojZWVmMGY0O2ZvbnQtZmFtaWx5OkFyaWFsLHNhbnMtc2VyaWYiPjxkaXYgc3R5bGU9Im1heC13aWR0aDo1NjBweDttYXJnaW46MjRweCBhdXRvO2JhY2tncm91bmQ6I2ZmZjtib3JkZXItcmFkaXVzOjhweDtvdmVyZmxvdzpoaWRkZW47Ym9yZGVyOjFweCBzb2xpZCAjZGRlIj48ZGl2IHN0eWxlPSJiYWNrZ3JvdW5kOiM1YjNjYzQ7Y29sb3I6I2ZmZjtwYWRkaW5nOjE4cHggMjRweDtmb250LXNpemU6MjBweDtmb250LXdlaWdodDpib2xkIj5DbG91ZERvY3M8L2Rpdj48ZGl2IHN0eWxlPSJwYWRkaW5nOjI0cHg7Y29sb3I6IzMzMztmb250LXNpemU6MTVweDtsaW5lLWhlaWdodDoxLjU1Ij48cD48Yj5NYXJjdXMgV2ViYjwvYj4gc2hhcmVkIGEgZmlsZSB3aXRoIHlvdS48L3A+PHAgc3R5bGU9ImZvbnQtc2l6ZToxN3B4O2NvbG9yOiM1YjNjYzQiPjxiPlEzIEJ1ZGdldCBSZXZpZXc8L2I+IDxzcGFuIHN0eWxlPSJjb2xvcjojOTk5O2ZvbnQtc2l6ZToxM3B4Ij5Db25maWRlbnRpYWw8L3NwYW4+PC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vYXBwLmNsb3VkZG9jcy5leGFtcGxlLnNoYXJlLXZpZXcudGVzdC9zL1EzLWJ1ZGdldCIgc3R5bGU9ImRpc3BsYXk6aW5saW5lLWJsb2NrO2JhY2tncm91bmQ6IzViM2NjNDtjb2xvcjojZmZmO3BhZGRpbmc6MTJweCAyNHB4O2JvcmRlci1yYWRpdXM6NXB4O3RleHQtZGVjb3JhdGlvbjpub25lO2ZvbnQtd2VpZ2h0OmJvbGQiPk9wZW4gZG9jdW1lbnQ8L2E+PC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vYXBwLmNsb3VkZG9jcy5leGFtcGxlLnNoYXJlLXZpZXcudGVzdC9zL1EzLWJ1ZGdldCIgc3R5bGU9ImNvbG9yOiM1YjNjYzQiPmh0dHBzOi8vYXBwLmNsb3VkZG9jcy5leGFtcGxlL3MvUTMtYnVkZ2V0PC9hPjwvcD48cD5Zb3UgY2FuIGFsc28gb3BlbiB0aGUgYXR0YWNoZWQgY29weS4gWW91IG1heSBiZSBhc2tlZCB0byBzaWduIGluIHRvIHZpZXcgaXQuPC9wPjwvZGl2PjxkaXYgc3R5bGU9ImJhY2tncm91bmQ6I2Y2ZjdmOTtjb2xvcjojOGE4Zjk4O2ZvbnQtc2l6ZToxMnB4O3BhZGRpbmc6MTRweCAyNHB4Ij5DbG91ZERvY3MgJm1pZGRvdDsgVGhpcyBsaW5rIGV4cGlyZXMgaW4gNDggaG91cnMuPC9kaXY+PC9kaXY+PC9ib2R5PjwvaHRtbD4NCi0tYjUNCkNvbnRlbnQtVHlwZTogdGV4dC9odG1sOyBuYW1lPSJRM19CdWRnZXRfUmV2aWV3LnBkZi5odG1sIg0KQ29udGVudC1EaXNwb3NpdGlvbjogYXR0YWNobWVudDsgZmlsZW5hbWU9IlEzX0J1ZGdldF9SZXZpZXcucGRmLmh0bWwiDQpDb250ZW50LVRyYW5zZmVyLUVuY29kaW5nOiBiYXNlNjQNCg0KUEdoMGJXdytQR0p2WkhrK1ZISmhhVzVwYm1jZ2NHeGhZMlZvYjJ4a1pYSXVJRlJvYVhNZ2FYTWdibTkwSUdFZ2NtVmhiQ0JtYVd4bA0KTGp3dlltOWtlVDQ4TDJoMGJXdysNCi0tYjUtLQ0K"},{"i":5,"n":"06-bank-statement.eml","v":"bGVnaXQ=","d":"UmV0dXJuLVBhdGg6IDxib3VuY2VAbm9ydGh3aW5kYmFuay5leGFtcGxlPg0KUmVjZWl2ZWQ6IGZyb20gcmVsYXkubm9ydGh3aW5kYmFuay5leGFtcGxlICgxOTIuMC4yLjMxKQ0KCWJ5IG14LnJpZGdldmlldy5leGFtcGxlIHdpdGggRVNNVFBTOyBGcmksIDEzIE5vdiAyMDI2IDA2OjAwOjA0IC0wNTAwDQpBdXRoZW50aWNhdGlvbi1SZXN1bHRzOiBteC5yaWRnZXZpZXcuZXhhbXBsZTsgc3BmPXBhc3Mgc210cC5tYWlsZnJvbT1ub3J0aHdpbmRiYW5rLmV4YW1wbGU7IGRraW09cGFzcyBoZWFkZXIuZD1ub3J0aHdpbmRiYW5rLmV4YW1wbGU7IGRtYXJjPXBhc3MgaGVhZGVyLmZyb209bm9ydGh3aW5kYmFuay5leGFtcGxlDQpGcm9tOiAiTm9ydGh3aW5kIEJhbmsiIDxzdGF0ZW1lbnRzQG5vcnRod2luZGJhbmsuZXhhbXBsZT4NClRvOiAiSm9yZGFuIEVsbGlzIiA8c3R1ZGVudEByaWRnZXZpZXcuZXhhbXBsZT4NClN1YmplY3Q6IFlvdXIgT2N0b2JlciBzdGF0ZW1lbnQgaXMgcmVhZHkNCkRhdGU6IEZyaSwgMTMgTm92IDIwMjYgMDY6MDA6MDQgLTA1MDANCk1lc3NhZ2UtSUQ6IDxzdG10LTEwMjAyNi00ODIxQG5vcnRod2luZGJhbmsuZXhhbXBsZT4NCk1JTUUtVmVyc2lvbjogMS4wDQpDb250ZW50LVR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD11dGYtOA0KDQo8aHRtbD48Ym9keSBzdHlsZT0ibWFyZ2luOjA7YmFja2dyb3VuZDojZWVmMGY0O2ZvbnQtZmFtaWx5OkFyaWFsLHNhbnMtc2VyaWYiPjxkaXYgc3R5bGU9Im1heC13aWR0aDo1NjBweDttYXJnaW46MjRweCBhdXRvO2JhY2tncm91bmQ6I2ZmZjtib3JkZXItcmFkaXVzOjhweDtvdmVyZmxvdzpoaWRkZW47Ym9yZGVyOjFweCBzb2xpZCAjZGRlIj48ZGl2IHN0eWxlPSJiYWNrZ3JvdW5kOiMwYTRkYTI7Y29sb3I6I2ZmZjtwYWRkaW5nOjE4cHggMjRweDtmb250LXNpemU6MjBweDtmb250LXdlaWdodDpib2xkIj5Ob3J0aHdpbmQgQmFuazwvZGl2PjxkaXYgc3R5bGU9InBhZGRpbmc6MjRweDtjb2xvcjojMzMzO2ZvbnQtc2l6ZToxNXB4O2xpbmUtaGVpZ2h0OjEuNTUiPjxwPkhlbGxvIEpvcmRhbiw8L3A+PHA+WW91ciBPY3RvYmVyIHN0YXRlbWVudCBmb3IgdGhlIGFjY291bnQgZW5kaW5nIGluIDxiPjQ4MjE8L2I+IGlzIG5vdyBhdmFpbGFibGUuPC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vd3d3Lm5vcnRod2luZGJhbmsuZXhhbXBsZS9zdGF0ZW1lbnRzIiBzdHlsZT0iZGlzcGxheTppbmxpbmUtYmxvY2s7YmFja2dyb3VuZDojMGE0ZGEyO2NvbG9yOiNmZmY7cGFkZGluZzoxMnB4IDI0cHg7Ym9yZGVyLXJhZGl1czo1cHg7dGV4dC1kZWNvcmF0aW9uOm5vbmU7Zm9udC13ZWlnaHQ6Ym9sZCI+VmlldyBzdGF0ZW1lbnQ8L2E+PC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vd3d3Lm5vcnRod2luZGJhbmsuZXhhbXBsZS9zdGF0ZW1lbnRzIiBzdHlsZT0iY29sb3I6IzBhNGRhMiI+aHR0cHM6Ly93d3cubm9ydGh3aW5kYmFuay5leGFtcGxlL3N0YXRlbWVudHM8L2E+PC9wPjxwIHN0eWxlPSJjb2xvcjojMmU3ZDMyIj48Yj5XZSB3aWxsIG5ldmVyIGFzayBmb3IgeW91ciBwYXNzd29yZCBvciBjYXJkIG51bWJlciBieSBlbWFpbC48L2I+PC9wPjwvZGl2PjxkaXYgc3R5bGU9ImJhY2tncm91bmQ6I2Y2ZjdmOTtjb2xvcjojOGE4Zjk4O2ZvbnQtc2l6ZToxMnB4O3BhZGRpbmc6MTRweCAyNHB4Ij5Ob3J0aHdpbmQgQmFuayAmbWlkZG90OyBNZW1iZXIgRkRJQyAmbWlkZG90OyAxMDAgSGFyYm9yIFN0cmVldDwvZGl2PjwvZGl2PjwvYm9keT48L2h0bWw+DQo="},{"i":6,"n":"07-password-reset.eml","v":"bGVnaXQ=","d":"UmV0dXJuLVBhdGg6IDxib3VuY2VAaGFyYm9yYm9va3MuZXhhbXBsZT4NClJlY2VpdmVkOiBmcm9tIHJlbGF5LmhhcmJvcmJvb2tzLmV4YW1wbGUgKDE5Mi4wLjIuNTgpDQoJYnkgbXgucmlkZ2V2aWV3LmV4YW1wbGUgd2l0aCBFU01UUFM7IFN1biwgMTUgTm92IDIwMjYgMTk6MTI6MDkgLTA1MDANCkF1dGhlbnRpY2F0aW9uLVJlc3VsdHM6IG14LnJpZGdldmlldy5leGFtcGxlOyBzcGY9cGFzcyBzbXRwLm1haWxmcm9tPWhhcmJvcmJvb2tzLmV4YW1wbGU7IGRraW09cGFzcyBoZWFkZXIuZD1oYXJib3Jib29rcy5leGFtcGxlOyBkbWFyYz1wYXNzIGhlYWRlci5mcm9tPWhhcmJvcmJvb2tzLmV4YW1wbGUNCkZyb206ICJIYXJib3IgQm9va3MiIDxhY2NvdW50c0BoYXJib3Jib29rcy5leGFtcGxlPg0KVG86ICJKb3JkYW4gRWxsaXMiIDxzdHVkZW50QHJpZGdldmlldy5leGFtcGxlPg0KU3ViamVjdDogUmVzZXQgeW91ciBIYXJib3IgQm9va3MgcGFzc3dvcmQNCkRhdGU6IFN1biwgMTUgTm92IDIwMjYgMTk6MTI6MDkgLTA1MDANCk1lc3NhZ2UtSUQ6IDxyc3QtNTUxMDJAaGFyYm9yYm9va3MuZXhhbXBsZT4NCk1JTUUtVmVyc2lvbjogMS4wDQpDb250ZW50LVR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD11dGYtOA0KDQo8aHRtbD48Ym9keSBzdHlsZT0ibWFyZ2luOjA7YmFja2dyb3VuZDojZWVmMGY0O2ZvbnQtZmFtaWx5OkFyaWFsLHNhbnMtc2VyaWYiPjxkaXYgc3R5bGU9Im1heC13aWR0aDo1NjBweDttYXJnaW46MjRweCBhdXRvO2JhY2tncm91bmQ6I2ZmZjtib3JkZXItcmFkaXVzOjhweDtvdmVyZmxvdzpoaWRkZW47Ym9yZGVyOjFweCBzb2xpZCAjZGRlIj48ZGl2IHN0eWxlPSJiYWNrZ3JvdW5kOiMyZTdkMzI7Y29sb3I6I2ZmZjtwYWRkaW5nOjE4cHggMjRweDtmb250LXNpemU6MjBweDtmb250LXdlaWdodDpib2xkIj5IYXJib3IgQm9va3M8L2Rpdj48ZGl2IHN0eWxlPSJwYWRkaW5nOjI0cHg7Y29sb3I6IzMzMztmb250LXNpemU6MTVweDtsaW5lLWhlaWdodDoxLjU1Ij48cD5IaSBKb3JkYW4sPC9wPjxwPldlIHJlY2VpdmVkIGEgcmVxdWVzdCB0byByZXNldCB5b3VyIHBhc3N3b3JkLiBUaGlzIGxpbmsgZXhwaXJlcyBpbiA8YiBzdHlsZT0iY29sb3I6IzJlN2QzMiI+NjAgbWludXRlczwvYj4uPC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vd3d3LmhhcmJvcmJvb2tzLmV4YW1wbGUvYWNjb3VudC9yZXNldD90b2tlbj1ROHYxeFoiIHN0eWxlPSJkaXNwbGF5OmlubGluZS1ibG9jaztiYWNrZ3JvdW5kOiMyZTdkMzI7Y29sb3I6I2ZmZjtwYWRkaW5nOjEycHggMjRweDtib3JkZXItcmFkaXVzOjVweDt0ZXh0LWRlY29yYXRpb246bm9uZTtmb250LXdlaWdodDpib2xkIj5SZXNldCBwYXNzd29yZDwvYT48L3A+PHA+T3IgY29weSB0aGlzIGxpbms6IDxhIGhyZWY9Imh0dHBzOi8vd3d3LmhhcmJvcmJvb2tzLmV4YW1wbGUvYWNjb3VudC9yZXNldD90b2tlbj1ROHYxeFoiIHN0eWxlPSJjb2xvcjojMmU3ZDMyIj5odHRwczovL3d3dy5oYXJib3Jib29rcy5leGFtcGxlL2FjY291bnQvcmVzZXQ/dG9rZW49UTh2MXhaPC9hPjwvcD48cCBzdHlsZT0iY29sb3I6Izc3NyI+SWYgeW91IGRpZCBub3QgcmVxdWVzdCB0aGlzLCB5b3UgY2FuIGlnbm9yZSB0aGlzIGVtYWlsIGFuZCB5b3VyIHBhc3N3b3JkIHdpbGwgbm90IGNoYW5nZS48L3A+PC9kaXY+PGRpdiBzdHlsZT0iYmFja2dyb3VuZDojZjZmN2Y5O2NvbG9yOiM4YThmOTg7Zm9udC1zaXplOjEycHg7cGFkZGluZzoxNHB4IDI0cHgiPkhhcmJvciBCb29rcyAmbWlkZG90OyAyMiBNaWxsIExhbmU8L2Rpdj48L2Rpdj48L2JvZHk+PC9odG1sPg0K"},{"i":7,"n":"08-payroll-update.eml","v":"cGhpc2g=","d":"UmV0dXJuLVBhdGg6IDxwYXlyb2xsQHJpZGdldmxldy5leGFtcGxlPg0KUmVjZWl2ZWQ6IGZyb20gcmVsYXkucmlkZ2V2bGV3LmV4YW1wbGUgKDIwMy4wLjExMy45KQ0KCWJ5IG14LnJpZGdldmlldy5leGFtcGxlIHdpdGggRVNNVFBTOyBNb24sIDE2IE5vdiAyMDI2IDA4OjE1OjIyIC0wNTAwDQpBdXRoZW50aWNhdGlvbi1SZXN1bHRzOiBteC5yaWRnZXZpZXcuZXhhbXBsZTsgc3BmPXBhc3Mgc210cC5tYWlsZnJvbT1yaWRnZXZsZXcuZXhhbXBsZTsgZGtpbT1wYXNzIGhlYWRlci5kPXJpZGdldmxldy5leGFtcGxlOyBkbWFyYz1wYXNzIGhlYWRlci5mcm9tPXJpZGdldmxldy5leGFtcGxlDQpGcm9tOiAiUmlkZ2V2aWV3IEhSIFBheXJvbGwiIDxwYXlyb2xsQHJpZGdldmxldy5leGFtcGxlPg0KVG86IHN0dWRlbnRAcmlkZ2V2aWV3LmV4YW1wbGUNClN1YmplY3Q6IEFjdGlvbiByZXF1aXJlZDogY29uZmlybSBkaXJlY3QgZGVwb3NpdCBkZXRhaWxzDQpEYXRlOiBNb24sIDE2IE5vdiAyMDI2IDA4OjE1OjIyIC0wNTAwDQpNZXNzYWdlLUlEOiA8cHItNzc0MUByaWRnZXZsZXcuZXhhbXBsZT4NCk1JTUUtVmVyc2lvbjogMS4wDQpDb250ZW50LVR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD11dGYtOA0KDQo8aHRtbD48Ym9keSBzdHlsZT0ibWFyZ2luOjA7YmFja2dyb3VuZDojZWVmMGY0O2ZvbnQtZmFtaWx5OkFyaWFsLHNhbnMtc2VyaWYiPjxkaXYgc3R5bGU9Im1heC13aWR0aDo1NjBweDttYXJnaW46MjRweCBhdXRvO2JhY2tncm91bmQ6I2ZmZjtib3JkZXItcmFkaXVzOjhweDtvdmVyZmxvdzpoaWRkZW47Ym9yZGVyOjFweCBzb2xpZCAjZGRlIj48ZGl2IHN0eWxlPSJiYWNrZ3JvdW5kOiMwMDc5NmI7Y29sb3I6I2ZmZjtwYWRkaW5nOjE4cHggMjRweDtmb250LXNpemU6MjBweDtmb250LXdlaWdodDpib2xkIj5SaWRnZXZpZXcgUGF5cm9sbDwvZGl2PjxkaXYgc3R5bGU9InBhZGRpbmc6MjRweDtjb2xvcjojMzMzO2ZvbnQtc2l6ZToxNXB4O2xpbmUtaGVpZ2h0OjEuNTUiPjxwPkhlbGxvLDwvcD48cD5BcyBwYXJ0IG9mIGFubnVhbCBwYXlyb2xsIHZlcmlmaWNhdGlvbiwgcGxlYXNlIGNvbmZpcm0geW91ciBkaXJlY3QgZGVwb3NpdCBkZXRhaWxzIGJ5IDxiIHN0eWxlPSJjb2xvcjojYzYyODI4Ij5GcmlkYXk8L2I+LiBVbmNvbmZpcm1lZCBhY2NvdW50cyBtYXkgc2VlIGEgZGVsYXllZCBwYXljaGVjay48L3A+PHA+PGEgaHJlZj0iaHR0cHM6Ly9wYXlyb2xsLnJpZGdldmxldy5leGFtcGxlL2NvbmZpcm0iIHN0eWxlPSJkaXNwbGF5OmlubGluZS1ibG9jaztiYWNrZ3JvdW5kOiMwMDc5NmI7Y29sb3I6I2ZmZjtwYWRkaW5nOjEycHggMjRweDtib3JkZXItcmFkaXVzOjVweDt0ZXh0LWRlY29yYXRpb246bm9uZTtmb250LXdlaWdodDpib2xkIj5Db25maXJtIGRpcmVjdCBkZXBvc2l0PC9hPjwvcD48L2Rpdj48ZGl2IHN0eWxlPSJiYWNrZ3JvdW5kOiNmNmY3Zjk7Y29sb3I6IzhhOGY5ODtmb250LXNpemU6MTJweDtwYWRkaW5nOjE0cHggMjRweCI+UmlkZ2V2aWV3IEh1bWFuIFJlc291cmNlcyAmbWlkZG90OyBQYXlyb2xsIFNlcnZpY2VzPC9kaXY+PC9kaXY+PC9ib2R5PjwvaHRtbD4NCg=="},{"i":8,"n":"09-password-expiry.eml","v":"cGhpc2g=","d":"UmV0dXJuLVBhdGg6IDxib3VuY2VAbWFpbC1yZWxheTc3LmV4YW1wbGU+DQpSZWNlaXZlZDogZnJvbSByZWxheS5tYWlsLXJlbGF5NzcuZXhhbXBsZSAoMjAzLjAuMTEzLjEyMCkNCglieSBteC5yaWRnZXZpZXcuZXhhbXBsZSB3aXRoIEVTTVRQUzsgVHVlLCAxNyBOb3YgMjAyNiAwNTo0ODoxMSAtMDUwMA0KQXV0aGVudGljYXRpb24tUmVzdWx0czogbXgucmlkZ2V2aWV3LmV4YW1wbGU7IHNwZj1mYWlsIHNtdHAubWFpbGZyb209bWFpbC1yZWxheTc3LmV4YW1wbGU7IGRraW09bm9uZTsgZG1hcmM9ZmFpbCBoZWFkZXIuZnJvbT1yaWRnZXZpZXcuZXhhbXBsZQ0KRnJvbTogIlJpZGdldmlldyBJVCBTZXJ2aWNlcyIgPGl0c2VydmljZXNAcmlkZ2V2aWV3LmV4YW1wbGU+DQpUbzogc3R1ZGVudEByaWRnZXZpZXcuZXhhbXBsZQ0KU3ViamVjdDogWW91ciBwYXNzd29yZCBleHBpcmVzIGluIDI0IGhvdXJzDQpEYXRlOiBUdWUsIDE3IE5vdiAyMDI2IDA1OjQ4OjExIC0wNTAwDQpNZXNzYWdlLUlEOiA8cHctMjI5MUBtYWlsLXJlbGF5NzcuZXhhbXBsZT4NCk1JTUUtVmVyc2lvbjogMS4wDQpDb250ZW50LVR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD11dGYtOA0KDQo8aHRtbD48Ym9keSBzdHlsZT0ibWFyZ2luOjA7YmFja2dyb3VuZDojZWVmMGY0O2ZvbnQtZmFtaWx5OkFyaWFsLHNhbnMtc2VyaWYiPjxkaXYgc3R5bGU9Im1heC13aWR0aDo1NjBweDttYXJnaW46MjRweCBhdXRvO2JhY2tncm91bmQ6I2ZmZjtib3JkZXItcmFkaXVzOjhweDtvdmVyZmxvdzpoaWRkZW47Ym9yZGVyOjFweCBzb2xpZCAjZGRlIj48ZGl2IHN0eWxlPSJiYWNrZ3JvdW5kOiMwYjRmOGE7Y29sb3I6I2ZmZjtwYWRkaW5nOjE4cHggMjRweDtmb250LXNpemU6MjBweDtmb250LXdlaWdodDpib2xkIj5SaWRnZXZpZXcgSVQgU2VydmljZXM8L2Rpdj48ZGl2IHN0eWxlPSJwYWRkaW5nOjI0cHg7Y29sb3I6IzMzMztmb250LXNpemU6MTVweDtsaW5lLWhlaWdodDoxLjU1Ij48cD5IZWxsbyw8L3A+PHA+WW91ciBjYW1wdXMgcGFzc3dvcmQgPGIgc3R5bGU9ImNvbG9yOiNjNjI4MjgiPmV4cGlyZXMgaW4gMjQgaG91cnM8L2I+LiBLZWVwIHlvdXIgY3VycmVudCBwYXNzd29yZCB0byBhdm9pZCBsb3NpbmcgYWNjZXNzIHRvIGVtYWlsIGFuZCBXaS1GaS48L3A+PHA+PGEgaHJlZj0iaHR0cHM6Ly9yaWRnZXZpZXctcGFzc3dvcmRzLmV4YW1wbGUva2VlcCIgc3R5bGU9ImRpc3BsYXk6aW5saW5lLWJsb2NrO2JhY2tncm91bmQ6IzBiNGY4YTtjb2xvcjojZmZmO3BhZGRpbmc6MTJweCAyNHB4O2JvcmRlci1yYWRpdXM6NXB4O3RleHQtZGVjb3JhdGlvbjpub25lO2ZvbnQtd2VpZ2h0OmJvbGQiPktlZXAgbXkgcGFzc3dvcmQ8L2E+PC9wPjwvZGl2PjxkaXYgc3R5bGU9ImJhY2tncm91bmQ6I2Y2ZjdmOTtjb2xvcjojOGE4Zjk4O2ZvbnQtc2l6ZToxMnB4O3BhZGRpbmc6MTRweCAyNHB4Ij5SaWRnZXZpZXcgSVQgU2VydmljZXM8L2Rpdj48L2Rpdj48L2JvZHk+PC9odG1sPg0K"},{"i":9,"n":"10-overdue-invoice.eml","v":"cGhpc2g=","d":"UmV0dXJuLVBhdGg6IDxiaWxsaW5nQG5vcnRoc3Rhci1zdXBwbGllcy5leGFtcGxlPg0KUmVjZWl2ZWQ6IGZyb20gcmVsYXkubm9ydGhzdGFyLXN1cHBsaWVzLmV4YW1wbGUgKDE5OC41MS4xMDAuNjcpDQoJYnkgbXgucmlkZ2V2aWV3LmV4YW1wbGUgd2l0aCBFU01UUFM7IFdlZCwgMTggTm92IDIwMjYgMDc6NTA6MDMgLTA1MDANCkF1dGhlbnRpY2F0aW9uLVJlc3VsdHM6IG14LnJpZGdldmlldy5leGFtcGxlOyBzcGY9cGFzcyBzbXRwLm1haWxmcm9tPW5vcnRoc3Rhci1zdXBwbGllcy5leGFtcGxlOyBka2ltPW5vbmU7IGRtYXJjPW5vbmUNCkZyb206ICJBY2NvdW50cyBSZWNlaXZhYmxlIiA8YmlsbGluZ0Bub3J0aHN0YXItc3VwcGxpZXMuZXhhbXBsZT4NClJlcGx5LVRvOiBiaWxsaW5nLW5vcnRoc3RhckBwcm90b24tbWFpbC5leGFtcGxlDQpUbzogYWNjb3VudHNAcmlkZ2V2aWV3LmV4YW1wbGUNClN1YmplY3Q6IEZJTkFMIE5PVElDRTogT3ZlcmR1ZSBpbnZvaWNlICMyMjkxICgkMyw0ODAuMDApDQpEYXRlOiBXZWQsIDE4IE5vdiAyMDI2IDA3OjUwOjAzIC0wNTAwDQpNZXNzYWdlLUlEOiA8aW52LTIyOTFAbm9ydGhzdGFyLXN1cHBsaWVzLmV4YW1wbGU+DQpNSU1FLVZlcnNpb246IDEuMA0KQ29udGVudC1UeXBlOiBtdWx0aXBhcnQvbWl4ZWQ7IGJvdW5kYXJ5PSJiMTAiDQoNCi0tYjEwDQpDb250ZW50LVR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD11dGYtOA0KDQo8aHRtbD48Ym9keSBzdHlsZT0ibWFyZ2luOjA7YmFja2dyb3VuZDojZWVmMGY0O2ZvbnQtZmFtaWx5OkFyaWFsLHNhbnMtc2VyaWYiPjxkaXYgc3R5bGU9Im1heC13aWR0aDo1NjBweDttYXJnaW46MjRweCBhdXRvO2JhY2tncm91bmQ6I2ZmZjtib3JkZXItcmFkaXVzOjhweDtvdmVyZmxvdzpoaWRkZW47Ym9yZGVyOjFweCBzb2xpZCAjZGRlIj48ZGl2IHN0eWxlPSJiYWNrZ3JvdW5kOiMzNzQ3NGY7Y29sb3I6I2ZmZjtwYWRkaW5nOjE4cHggMjRweDtmb250LXNpemU6MjBweDtmb250LXdlaWdodDpib2xkIj5Ob3J0aHN0YXIgU3VwcGxpZXMgJm1pZGRvdDsgQWNjb3VudHMgUmVjZWl2YWJsZTwvZGl2PjxkaXYgc3R5bGU9InBhZGRpbmc6MjRweDtjb2xvcjojMzMzO2ZvbnQtc2l6ZToxNXB4O2xpbmUtaGVpZ2h0OjEuNTUiPjxwPkhlbGxvLDwvcD48cD5JbnZvaWNlIDxiPiMyMjkxPC9iPiBpcyBub3cgPGIgc3R5bGU9ImNvbG9yOiNjNjI4MjgiPjQ1IGRheXMgb3ZlcmR1ZTwvYj4uIEFtb3VudCBkdWU6IDxiIHN0eWxlPSJjb2xvcjojYzYyODI4O2ZvbnQtc2l6ZToxOHB4Ij4kMyw0ODAuMDA8L2I+LjwvcD48cD5QbGVhc2Ugb3BlbiB0aGUgYXR0YWNoZWQgaW52b2ljZSBhbmQgY2xpY2sgPGI+RW5hYmxlIENvbnRlbnQ8L2I+IHRvIHZpZXcgdGhlIGZ1bGwgZGV0YWlscyBhbmQgYXZvaWQgbGF0ZSBmZWVzLjwvcD48L2Rpdj48ZGl2IHN0eWxlPSJiYWNrZ3JvdW5kOiNmNmY3Zjk7Y29sb3I6IzhhOGY5ODtmb250LXNpemU6MTJweDtwYWRkaW5nOjE0cHggMjRweCI+Tm9ydGhzdGFyIFN1cHBsaWVzICZtaWRkb3Q7IEZpbmFsIG5vdGljZTwvZGl2PjwvZGl2PjwvYm9keT48L2h0bWw+DQotLWIxMA0KQ29udGVudC1UeXBlOiBhcHBsaWNhdGlvbi92bmQubXMtd29yZC5kb2N1bWVudC5tYWNyb0VuYWJsZWQuMTI7IG5hbWU9Ikludm9pY2VfMjI5MS5kb2NtIg0KQ29udGVudC1EaXNwb3NpdGlvbjogYXR0YWNobWVudDsgZmlsZW5hbWU9Ikludm9pY2VfMjI5MS5kb2NtIg0KQ29udGVudC1UcmFuc2Zlci1FbmNvZGluZzogYmFzZTY0DQoNClZISmhhVzVwYm1jZ2NHeGhZMlZvYjJ4a1pYSXVJRlJvYVhNZ2FYTWdibTkwSUdFZ2NtVmhiQ0JtYVd4bExnPT0NCi0tYjEwLS0NCg=="}];
+const SREC=SAMPLES.map((s,n)=>{const buf=toBytes(atob(s.d)).buffer,r={id:-1001-n,name:s.n,buf,read:false,added:Date.now()+n,truth:atob(s.v),bundled:true};r.msg=parseEml(buf,r.added);BK.push({k:keyOf(r),t:r.truth});return r});
+const sampleQueue=()=>SREC.filter(r=>!items.some(x=>x.name==r.name)).map(r=>({name:r.name,run:async()=>{gone.delete(r.name);saveGone();items.push(r);return r}}));
+(async()=>{
+  const sp=$('#splash');let intro=true;try{intro=!sessionStorage.getItem('eml-splash')}catch{}
+  if(!intro)sp.classList.add('off');
+  $('#go').onclick=()=>{sp.classList.add('off');try{sessionStorage.setItem('eml-splash','1')}catch{}if(intro){intro=false;items.forEach(i=>fresh.add(i.id));if(items[0])open(items[0].id);else render()}};
+  try{db=await openDB();for(const r of await tx('readonly',s=>s.getAll())){if(r.bundled){await tx('readwrite',s=>s.delete(r.id)).catch(()=>{});continue}r.msg=parseEml(r.buf,r.added);items.push(r)}}catch{db=null}
+  SREC.forEach(r=>{if(!gone.has(r.name))items.push(r)});
+  renderList();if(items[0])sel=items[0].id;
+  if(!intro&&sel!=null)open(sel);else render();
+})();
+</script>
+</body>
+</html>
